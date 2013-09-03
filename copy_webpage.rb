@@ -5,6 +5,8 @@ require 'httpclient'
 require 'getoptlong'
 require 'nokogiri'
 require 'open-uri'
+require 'css_parser'
+include CssParser
 
 opts = GetoptLong.new(
   [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
@@ -65,6 +67,22 @@ class WebpageCopier
         node['href'] = "styles/#{name}"
       end
     end
+  end
+
+  def change_style_files
+    # Find src: attributes in the CSS file and "correct" them
+    parser = CssParser::Parser.new
+    # load a local file, setting the base_dir and media_types
+    files = Dir.glob "styles/*" 
+    files.each do |file|
+      parser.load_file!(file, "styles")
+      parser.each_selector(:screen) do |sel, decl, specificity|
+        puts sel.class
+        puts decl.class
+        puts specificity.class
+      end
+    end
+
   end
 
   def fix_imgs
@@ -132,5 +150,7 @@ end
 copier = WebpageCopier.new url
 copier.fix_imgs
 copier.fix_styles
+
+copier.change_style_files
 
 copier.print "index.html"
