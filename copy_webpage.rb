@@ -52,7 +52,38 @@ class WebpageCopier
     @url = url
     client = HTTPClient.new
     content = client.get_content(@url)
+
+    matches = /(http.?:\/\/[^\\]+)\//.match @url
+    @base = matches[1]
     @dom_root = Nokogiri::HTML(content)
+  end
+
+  def change_style_files
+    # Find src: attributes in the CSS file and "correct" them
+    puts "Reading CSS files for URLs"
+    parser = CssParser::Parser.new
+    # load a local file, setting the base_dir and media_types
+    files = Dir.glob "styles/*" 
+
+    files.each do |file|
+      write_parser=CssParser::Parser.new
+      puts "Reading CSS #{file}"
+      parser.load_file!(file)
+      parser.each_selector do |sel, decl, specificity|
+        # puts "#{sel},  {#{decl}},  #{specificity}"
+
+        # This will fetch the URLs as well.
+        new_decl = change_all_urls decl if /url\s*\(/.match decl
+        str =  "#{sel} { #{new_decl} }"
+        write_parser.add_block! str
+      end
+
+      f=File.open('tmp.css', 'w')
+      f.write write_parser.to_s
+      f.close
+
+      File.rename('tmp.css', file)
+    end
   end
 
   def fix_styles
@@ -67,22 +98,6 @@ class WebpageCopier
         node['href'] = "styles/#{name}"
       end
     end
-  end
-
-  def change_style_files
-    # Find src: attributes in the CSS file and "correct" them
-    parser = CssParser::Parser.new
-    # load a local file, setting the base_dir and media_types
-    files = Dir.glob "styles/*" 
-    files.each do |file|
-      parser.load_file!(file, "styles")
-      parser.each_selector(:screen) do |sel, decl, specificity|
-        puts sel.class
-        puts decl.class
-        puts specificity.class
-      end
-    end
-
   end
 
   def fix_imgs
@@ -104,14 +119,32 @@ class WebpageCopier
 
   private
 
-  def write_to_file(src, write_dir)
+  def change_all_urls decl
+    url_matches = decl.scan /url\s*\((.*?)([^\/)]+)\)/
 
+    url_matches.each do |basename, last|
+      write_to_file "#{@base}#{basename}#{last}", "assets"
+    end
+
+    new_decl = decl.gsub  /url\s*\((.*?)\/([^\/)]+)\)/, 'url(assets/\2)'
+    #puts "Changed #{decl} to #{new_decl}"
+
+    return new_decl
+  end
+
+  def write_to_file(src, write_dir, options={})
+    # Will only write if file doesn't exist already (unless option['force_write'] is set)
     if !Dir.exists? write_dir
       Dir.mkdir write_dir
     end
 
     name = name_from_url src
-    puts "Writing to file #{name}"
+    if File.exists?(File.join(write_dir, name)) && (options['force_write'].nil? || options['force_write']!=true)
+      puts "File exists. Ignoring"
+      return
+    end
+
+    puts "Downloading #{src} and writing to file #{name}"
 
     File.open("#{write_dir}/#{name}", 'wb') do |write_f|
       read_handle = open(src, 'rb')
@@ -133,7 +166,7 @@ class WebpageCopier
       end
     end
 
-    puts "Downloading img from #{src_str}"
+    puts "Source located from #{src_str}"
 
     return src_str
   end
