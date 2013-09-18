@@ -92,8 +92,7 @@ class WebpageCopier
     style_nodes.each do |node|
       if node['rel']=='stylesheet' then
         src = locate_src node['href']
-        name = name_from_url src
-        write_to_file src, 'styles'
+        name = write_to_file src, 'styles'
 
         node['href'] = "styles/#{name}"
       end
@@ -108,6 +107,21 @@ class WebpageCopier
       name = write_to_file src, 'images'
 
       node['src'] = "images/#{name}"
+    end
+  end
+  def fix_javascript
+    puts "Reading Javascript"
+    js_nodes = @dom_root.css 'script'
+
+    js_nodes.each do |node|
+      src = locate_src node['src']
+      if src.nil?
+        # inline scripts
+        next
+      end
+      name = write_to_file src, 'javascript'
+
+      node['src'] = "javascript/#{name}"
     end
   end
 
@@ -141,18 +155,16 @@ class WebpageCopier
     name = name_from_url src
     if File.exists?(File.join(write_dir, name)) && (options['force_write'].nil? || options['force_write']!=true)
       puts "File exists. Ignoring"
-      return
-    end
+    else
+      puts "Downloading #{src} and writing to file #{name}"
 
-    puts "Downloading #{src} and writing to file #{name}"
-
-    File.open("#{write_dir}/#{name}", 'wb') do |write_f|
-      read_handle = open(src, 'rb')
-      while (buff = read_handle.read(1024))
-        write_f.write(buff)
+      File.open("#{write_dir}/#{name}", 'wb') do |write_f|
+        read_handle = open(src, 'rb')
+        while (buff = read_handle.read(1024))
+          write_f.write(buff)
+        end
       end
     end
-
     return name
   end
 
@@ -183,6 +195,7 @@ end
 copier = WebpageCopier.new url
 copier.fix_imgs
 copier.fix_styles
+copier.fix_javascript
 
 copier.change_style_files
 

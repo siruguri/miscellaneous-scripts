@@ -12,16 +12,16 @@ end
 
 http = Net::HTTP.new('www.google.com', 443)
 http.use_ssl = true
+http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
 # elements of auth 
 path = '/accounts/ClientLogin'
-data = 'accountType=HOSTED_OR_GOOGLE&Email=siruguri@gmail.com&Passwd=yptjcscrjkbqsgle&service=wise'
+data = 'accountType=HOSTED_OR_GOOGLE&Email=siruguri@gmail.com&Passwd=joponymdfsxzkith&service=wise'
 headers = {"Content-Type"=>"application/x-www-form-urlencoded"}
 
 # Post the request and print out the response to retrieve our authentication token
 resp, respdata = http.post(path, data, headers)
 
-puts resp
 cl_string = resp.body[/Auth=(.*)/, 1]
 
 # Build our headers hash and add the authorization token
