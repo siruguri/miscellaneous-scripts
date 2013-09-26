@@ -1,31 +1,57 @@
-require '../code/ruby/mailer_client.rb'
+require File.join(ENV['HOME'], "code/scripts/mailer_client.rb")
+require 'getoptlong'
+require File.join(ENV['HOME'], "code/ruby/common_utils.rb")
+
+opts = GetoptLong.new(
+  [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
+  [ '--subject', '-s', GetoptLong::REQUIRED_ARGUMENT],
+  [ '--message', '-m', GetoptLong::REQUIRED_ARGUMENT],
+  [ '--mails', '-l', GetoptLong::REQUIRED_ARGUMENT ]
+)
 
 client = MailerModule::MailerClient.new(from: 'siruguri@gmail.com', to: 'siruguri@gmail.com; ssiruguri@techsoupglobal.org', sender_name: "Sameer Siruguri")
-
-email_list = "Grant Kinney <gmkcreative@gmail.com>, Elen Awalom <elenawalom@gmail.com>, john hattori <johnmhattori@yahoo.com>, Tracy <changtc@yahoo.com>, Louis <lmmedina90@gmail.com>, Cole <coleww@gmail.com>, Gabe Kopley <gabe@railsschool.org>, Dave <dorkrawk@gmail.com>, Sandy Diao <sandydiao@gmail.com>, Dilys <optanovo@gmail.com>, Daniel Uribe <duribe8@gmail.com>, Stephen Schur <promethods@gmail.com>, elnaqah <ahmed@elnaqah.com>, Kisha M Richardson <kisha@spunklabs.com>, Michael M <michael@railsschool.org>, Tracy J <tstalts@mailcan.com>, Sameer Siruguri <sameers.public@gmail.com>, Brad Johnson <brad@evolve-ca.org>"
-
-#email_list = "Gabe Kopley <ssiruguri@techsoupglobal.org>, Sameer Siruguri <sameers.public@gmail.com>"
-
-if !client.nil?
-  client.subject = "RailsSchool Catchup: Slides and code online; Level 2 class on Jul 16!"
-
-  client.message = 'Hi,<br><br>You are receiving this email because you had signed up for <a href="http://www.railsschool.org/l/ruby-level-2-blocks-exceptions-and-writing-a-webpage-scraper">the Ruby Catchup Level 2 class on Jul 16</a> at Rails School SF. If you were in the class, thanks for participating, and for being a lively and engaged student; your feedback will improve the class for the next batch. If you weren\'t - hello there, this is the class instructor mailing you links to the material we discussed. <p/>The code I used during the class is <a href="https://github.com/siruguri/railsschool-catchup-ruby">available on Github </a> (if you don\'t know about using Git and Github, you should look into how it works!) or you can download it as <a href="http://sameer.siruguri.net/railsschool/">a TAR.GZ or a ZIP file</a>. <p/>The lesson slides (Lessons 0 through 6) are on <a href="https://drive.google.com/?usp=folder#folders/0B4fq7EmVPd1WalQ5SFZBbnlCS0k">Google Docs</a>!<p>For upcoming Ruby catchup classes, we have an exciting series coming up - a re-do of Levels 1 and 2, and a new Level 3 class:
-<ol>
-<li><a href="http://www.railsschool.org/l/catch-up-day-ruby-beginners-class-level-1-aug-13">Level 1 - Data Types, Basic Conventions and Why Everything is an Object in Ruby</a>: <b>Aug 13</b></li>
-<li><a href="http://www.railsschool.org/l/ruby-level-2-blocks-exceptions-and-writing-a-webpage-scraper-aug-27">Level 2 - Blocks, Exceptions, and A Simple Webpage Scraper</a>: <b>Aug 27</b></li>
-<li>Level 3 - More Object Oriented Concepts, Proc-and-Block, and Advanced Conventions</a>: <b>Sep 10</b> (link coming soon!)</li>
-</ol>
-
-
-<p/>Cheers,<br/><br/>Sameer.<br/>
-<a href="http://www.twitter.com/siruguri">@siruguri</a> - <a href="http://sameer.siruguri.net/blog">blog</a>
-<p/>
-'
+if client.nil?
+  error_exit("Failed to create mailer client - don't know why.")
 end
 
+email_list = ["Sameer S <kettlecheap@yahoo.com>", "Sameer Siruguri <sameers.public@gmail.com>"]
 
-email_list.split(/,\s+/).each do |email|
-  puts "Emailing #{email}"
+email_list_file = nil
+client_subj = nil
+client_message = nil
+
+url = ''
+
+opts.each do |opt, arg|
+  if opt == '--help'
+    CommonUtils.print_help_and_exit
+  elsif opt == '--mails'
+    email_list_file = arg.to_s
+    if !File.file? email_list_file then CommonUtils.error_exit("Filename supplied for emails #{email_list_file} is not a file.")
+    end
+  elsif opt == '--subject'
+     client_subj = arg.to_s
+  elsif opt == '--message'
+    puts "checking message opt"
+    msg_file = arg.to_s
+    if File.file?(msg_file)
+      puts "Opening file #{msg_file}"
+      client_message = File.open(arg.to_s).readlines.join("\n")
+    else
+      client_message = arg.to_s
+    end
+  end
+end
+
+error_exit("Either message or subject not specified") if(client_message.nil? or client_subj.nil?)
+
+client.subject = client_subj
+client.message = client_message
+email_list=File.open(email_list_file).readlines unless email_list_file.nil?
+
+email_list.each do |email|
+  email = email.chomp
+  puts "Emailing <<#{email}>>"
   client.to_string = email
   client.email
 end
