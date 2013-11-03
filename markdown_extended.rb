@@ -38,8 +38,6 @@ class RenderWithoutCode < Redcarpet::Render::HTML
   end
 end
 
-input = '<link href="markdown.css" rel="stylesheet"></link>' + "\n"
-
 class Processor
   def initialize(opts)
     @output_dir=opts[:output_dir]
@@ -49,6 +47,8 @@ class Processor
   end
 
   def process_file(filename)
+    input = '<link href="markdown.css" rel="stylesheet"></link>' + "\n"
+
     begin
       input += File.open(filename).readlines.join("")
     rescue Errno::ENOENT => e
@@ -100,5 +100,8 @@ if output_dir.nil?
 end
 
 my_proc=Processor.new(output_dir: output_dir)
-puts ARGV
+ARGV.each do |file|
+  my_proc.process_file file
+end
+
 
