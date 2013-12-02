@@ -2,7 +2,7 @@
 
 require 'redcarpet'
 require 'getoptlong'
-require File.join(ENV['HOME'], "code/ruby/common_utils.rb")
+require 'my_utilities'
 
 opts = GetoptLong.new(
   [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
@@ -42,7 +42,7 @@ class Processor
   def initialize(opts)
     @output_dir=opts[:output_dir]
     if !Dir.exists? @output_dir
-      CommonUtils.error_exit("#{output_dir}: specified directory doesn't exist.")
+      MyUtilities.error_exit("#{output_dir}: specified directory doesn't exist.")
     end
   end
 
@@ -52,7 +52,7 @@ class Processor
     begin
       input += File.open(filename).readlines.join("")
     rescue Errno::ENOENT => e
-      CommonUtils.error("#{filename} Markdown file not found.")
+      MyUtilities.error("#{filename} Markdown file not found.")
       return nil
     end
     
@@ -63,7 +63,7 @@ class Processor
     begin
       f=File.open(outname, 'w')
     rescue Errno::ENOENT => e
-      CommonUtils::error_exit("Cannot open output file #{outname} - fatal.")
+      MyUtilities.error_exit("Cannot open output file #{outname} - fatal.")
     end 
 
     parser = Redcarpet::Markdown.new(Redcarpet::Render::HTML_TOC)
@@ -78,7 +78,7 @@ class Processor
 
     # Do the rest of the rendering
     renderer = RenderWithoutCode.new(with_toc_data: true)
-    parser = Redcarpet::Markdown.new(renderer)
+    parser = Redcarpet::Markdown.new(renderer, :footnotes => true)
     #parser = Redcarpet::Markdown.new(Redcarpet::Render::HTML, :footnotes => true)
 
     f.puts (parser.render quoted_out)
@@ -88,7 +88,7 @@ end
 opts.each do |opt, arg|
   case opt
   when '--help'
-    CommonUtils.print_help_and_exit
+    MyUtilities.print_help_and_exit
     
   when '--output_directory'
     output_dir = arg.to_s
@@ -96,7 +96,7 @@ opts.each do |opt, arg|
 end
 
 if output_dir.nil?
-  CommonUtils.error_exit("Need -o/--output_directory argument. Exiting.")
+  MyUtilities.error_exit("Need -o/--output_directory argument. Exiting.")
 end
 
 my_proc=Processor.new(output_dir: output_dir)
