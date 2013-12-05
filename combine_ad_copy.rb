@@ -2,12 +2,12 @@
 
 # Give a directory that has numbered files (starting with the format \d+_) for each set of words
 
+require 'my_utilities'
 require 'pry-debugger'
-require File.join(ENV['HOME'], "code/ruby/common_utils.rb")
 
 class Combiner
-  @level = CommonUtils::Logger::FATAL
-  @logger=CommonUtils::Logger.new(@level)
+  @level = MyUtilities::Logger::FATAL
+  @logger=MyUtilities::Logger.new(@level)
 
   class << self
     attr_accessor :logger, :level
@@ -26,7 +26,7 @@ class Combiner
     @logger.debug word_lists
 
     if word_lists == nil
-      CommonUtils.error_exit 'Something wrong with file list'
+      MyUtilities.error_exit 'Something wrong with file list'
     end
 
     seqs.each do |seq|
@@ -34,7 +34,7 @@ class Combiner
 
       # Dynamic programming!
       seq.each do |key|
-        copy_list = cross_prod copy_list, word_lists[key]
+        copy_list = cross_prod copy_list, word_lists[key.to_i]
       end
       @logger.debug "Adding ---\n#{copy_list}\n---"
       final_list |= copy_list
@@ -63,9 +63,14 @@ class Combiner
 
   def read_files flist
     # If any of the files are mis named this will return nil
-    ok=false
-    
-    return nil if !flist || flist.empty? || (flist.map { |fname| ok ||= /\/\d+_[^\/]*$/.match fname } && !ok)
+    return nil if !flist || flist.empty?
+    ok=true
+
+    flist.each do |fname|
+      @logger.debug("Ok: #{ok} -> #{fname}");
+      ok=ok && ((!File.file? fname) || !(/\/\d+_[^\/]*$/.match(fname).nil?))
+    end
+    return nil unless ok
 
     ret_list = {}
     flist.each do |f|
@@ -95,8 +100,18 @@ end
 seqs = [ [1,3,4,5], [2,3,4], [3,4,5], [1,3,5]]
 # seqs = [ [1,2] ]
 
+if !Dir.exists? ARGV[0]
+  MyUtilities.error_exit("Supply a directory with files as first arg")
+end
+
+if ARGV.size < 2
+  MyUtilities.error_exit("Need at least one sequence number")
+end
+
 c=Combiner.new ARGV[0]
-all_words = c.create_seqs seqs
+seqs=ARGV[1..-1]
+
+all_words = c.create_seqs [seqs]
 
 puts (all_words.sort { |a, b| if a.size == b.size then ret= a<=>b else ret= a.size <=> b.size end; ret}).reject { |x| x.size > 60}
 
