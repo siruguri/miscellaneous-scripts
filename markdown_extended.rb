@@ -95,8 +95,8 @@ opts.each do |opt, arg|
   end
 end
 
-if output_dir.nil?
-  MyUtilities.error_exit("Need -o/--output_directory argument. Exiting.")
+if output_dir.nil? or !Dir.exists? output_dir
+  MyUtilities.error_exit("Need valid -o/--output_directory argument." + (!output_dir.nil? ? " #{output_dir} not found.":"") + " Exiting.")
 end
 
 my_proc=Processor.new(output_dir: output_dir)
