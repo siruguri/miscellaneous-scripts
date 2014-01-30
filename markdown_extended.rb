@@ -55,8 +55,9 @@ class Processor
       MyUtilities.error("#{filename} Markdown file not found.")
       return nil
     end
-    
-    outname=filename.gsub("\.md", ".html")
+
+    basename = File.basename filename
+    outname=basename.gsub("\.md", ".html")
     outname = File.join(@output_dir, outname)
     puts outname
 

@@ -63,22 +63,27 @@ class Combiner
 
   def read_files flist
     # If any of the files are mis named this will return nil
-    return nil if !flist || flist.empty?
-    ok=true
 
+    @logger.debug("Received #{flist} in read_files")
+
+    return nil if !flist || flist.empty?
+    ok=false
+
+    # check there's at least one file starting with numbers
     flist.each do |fname|
+      break if ok
       @logger.debug("Ok: #{ok} -> #{fname}");
-      ok=ok && ((!File.file? fname) || !(/\/\d+_[^\/]*$/.match(fname).nil?))
+      condition_check = (File.file?(fname) && !(/\/\d+_[^\/]*$/.match(fname).nil?))
+      ok=(ok || condition_check) 
     end
     return nil unless ok
 
     ret_list = {}
     flist.each do |f|
-      @logger.debug f
       if File.file? f
         # The file has to start with NN_
         match_grp = /\/(\d+)_[^\/]*$/.match f
-        return nil if match_grp.size != 2
+        next unless match_grp && match_grp.size == 2
         
         key = match_grp[1].to_i
         ret_list[key]=[]
@@ -101,18 +106,29 @@ seqs = [ [1,3,4,5], [2,3,4], [3,4,5], [1,3,5]]
 # seqs = [ [1,2] ]
 
 if !Dir.exists? ARGV[0]
-  MyUtilities.error_exit("Supply a directory with files as first arg")
+  MyUtilities.error_exit("Supply a directory with files as first arg, and a filename containing sequences")
 end
 
 if ARGV.size < 2
-  MyUtilities.error_exit("Need at least one sequence number")
+  MyUtilities.error_exit("Need at least one sequence number or a filename containing them")
+end
+
+if File.exists? ARGV[1]
+  all_seqs=[]
+  # Expect each line to be single space separated numbers
+  open(ARGV[1]).readlines.map do |line|
+    all_seqs.push(line.split(' '))
+  end
+else
+  seqs=ARGV[1..-1]
+  all_seqs=[seqs]
 end
 
 c=Combiner.new ARGV[0]
-seqs=ARGV[1..-1]
 
-all_words = c.create_seqs [seqs]
-
-puts (all_words.sort { |a, b| if a.size == b.size then ret= a<=>b else ret= a.size <=> b.size end; ret}).reject { |x| x.size > 60}
+all_seqs.each do |seqs|
+  all_words = c.create_seqs [seqs]
+  puts (all_words.sort { |a, b| if a.size == b.size then ret= a<=>b else ret= a.size <=> b.size end; ret}).reject { |x| x.size > 60}
+end
 
 #puts all_words
