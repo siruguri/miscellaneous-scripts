@@ -18,22 +18,23 @@ It's still pretty primitive. Here's how it works:
 * Make a file called `gd_config.ini` - that's where you should put your Google auth secrets. See below for an example.
 * Run `mkdir data` at the command line.
 * Add this line in the config file you created in step 1 above.
-    target_directory = 'data' # This is why you had to mkdir data above
+
+        target_directory = 'data' # This is why you had to mkdir data above
 
 * Run the script like so, to start backing up from your root folder:
 
-    ruby google_client.rb
+        ruby google_client.rb
 
 * If you want to back up a specific folder (which has to be in your Google Drive root), then do it this way - this will make a backup of all folder whose title contains "Title X" in it:
 
-    ruby google_client.rb 'Title X'
+        ruby google_client.rb 'Title X'
 
 ## Caveats
 
 * Images and forms will be ignored.
 * The script assumes a specific order in which MIME types are considered, when there are multiple MIME types for a document. This order is dictated by the following line:
 
-    formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/]
+        formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/]
 
 * The script will forget the access token it obtains the first time around, if you don't already have one. You have to remember to write it down into your `gd_config.ini` file
 * The script will need to launch a browser to get an authorization code the first time round - so you can't run this on a VPS, or other non-windowed system.
