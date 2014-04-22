@@ -2,7 +2,7 @@ require 'fileutils'
 require 'open-uri'
 
 require 'rubygems'
-require 'google-contacts'
+# require 'google-contacts'
 
 require 'parseconfig'
 require 'google/api_client'
@@ -29,7 +29,7 @@ class GoogleBackup
       Dir.mkdir @destination_folder
     end
 
-    $stderr.write("Starting backups into #{@destination_folder}\n")
+    log("Starting backups into #{@destination_folder}")
 
     if client
       @client=client
@@ -90,32 +90,39 @@ class GoogleBackup
     list_options = {'folderId' => folder_id}
     if by_title_query
       list_options.merge!({'q' => "title contains '#{by_title_query}'"})
-      $stderr.write("Query folder with #{list_options}\n")
+      log("Query folder with #{list_options}")
     end
 
     @start_folder = @client.execute(api_method: @drive.children.list,
                                     parameters: list_options)
-    $stderr.write("Found #{@start_folder.data.items.count} items\n")
+    log("Found #{@start_folder.data.items.count} items")
   end
 
   def run_backups(formats)
     filename = 'tmp'
     @start_folder.data.items.each do |item|
-      $stderr.write("Getting #{item.id}\n")
-
+      log("Getting #{item.id}")
       metadata = @client.execute(api_method: @drive.files.get,
                                  parameters: {
                                    "fileId" => item.id
                                  })
       written = false
       item_data = metadata.data 
+
+      # Ignore Google Forms and images
+      if item_data['mimeType'] == 'application/vnd.google-apps.form' || /image/.match(item_data['mimeType'])
+        next
+      end
+      
       if /folder/.match item_data['mimeType']
         child_backup = GoogleBackup.new(@config, destination_folder: "#{@destination_folder}/" + item_data['title'], client: @client )
         child_backup.set_start_folder(by_id: item_data['id'])
         child_backup.run_backups(formats)
       else
-        filename = item_data['title'].gsub(/ /, '_')
-        $stderr.write ">>> Using filename #{filename}\n"
+        filename = item_data['title']
+        filename = filename.gsub(/ /, '_')
+        filename = filename.gsub(/[\/\\]/, '_')
+        log(">>> Using filename #{filename}")
 
         has_download = false
         if item_data['downloadUrl'] or item_data['exportLinks']
@@ -137,7 +144,7 @@ class GoogleBackup
         download_links = []
         formats.each do |fmt|
           matched_pair = link_pairs.select do |k, v|
-            $stderr.write("Looking at #{fmt} with #{k}\n")
+            log("Looking at #{fmt} with #{k}")
             fmt.match k
           end 
           download_links << [matched_pair.keys[0], matched_pair[matched_pair.keys[0]]] unless matched_pair.empty?
@@ -153,6 +160,12 @@ class GoogleBackup
   end
 
   private
+
+  def log (mesg)
+    if @config['debug']
+      $stderr.write("#{mesg}\n")
+    end
+  end
 
   def convert_to_extension(mime_type)
     if @known_conversions[mime_type]
@@ -183,7 +196,7 @@ class GoogleBackup
   end
 
   def make_local_copy(link, target_file)
-    $stderr.write(">>> Using download link value <#{link}>, writing to #{@config['target_directory']}/#{target_file}\n")
+    log(">>> Using download link value <#{link}>, writing to #{@destination_folder}/#{target_file}")
     
     open(link, "Authorization" => "Bearer #{@client.authorization.access_token}") do |f|
       
@@ -198,9 +211,10 @@ end
 begin
   config=ParseConfig.new('gd_config.ini')
 rescue Errno::EACCES => e
-  $stderr.puts "There needs to be a config file called gd_config.ini (#{e.class}, #{e.message})"
+  log("There needs to be a config file called gd_config.ini (#{e.class}, #{e.message})")
   exit -1
 end
+
 backup = GoogleBackup.new(config)
 backup.do_authorization
 $stderr.write("Finished authorization\n")
@@ -208,10 +222,15 @@ $stderr.write("Finished authorization\n")
 # -- main code starts here --
 # result = insert_file(client, drive, 'document.txt')
 
-backup.set_start_folder(by_title_query: 'Teaching')
+title=nil
+if ARGV.size > 0
+  title = ARGV[0]
+end
+
+backup.set_start_folder(by_title_query: title)
 $stderr.write("Set start folder\n")
 
 #application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, 'pdf']
+formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/]
 backup.run_backups(formats)
 
