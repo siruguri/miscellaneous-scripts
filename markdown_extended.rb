@@ -19,13 +19,14 @@ class RenderWithoutCode < Redcarpet::Render::HTML
 
     lines=code.split("\n")
     lines.map! do |line|
+
       line=line.gsub(/\&.squo;/, "'")
       line=line.gsub(/\&.dquo;/, '"')
 
       # Adding my own special coloring scheme for comments and outputs
       # (for which I've added my own special markup sequence, -->
-      line=line.gsub(/(\# .*$)/, "<span.ps.style='color:.ps.red'>\\1</span>")
-      line=line.gsub(/\=\=> (.*$)/, "<span.ps.style='color:.ps.blue'>\\1</span>")
+      line=line.gsub(/(\# .*$)/, "<span.ps.class='comment'>\\1</span>")
+      line=line.gsub(/\=\=> (.*$)/, "<span.ps.class='output'>\\1</span>")
 
       # Kludgy way of only replacing spaces outside the HTML tags I'm adding to get comments
       # to be in a span of their own

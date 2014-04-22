@@ -3,4 +3,9 @@ index.html
 *png
 *jpg
 *gif
-
+*.ini
+.DS_Store/
+*.txt
+*.json
+.DS_Store
+data/

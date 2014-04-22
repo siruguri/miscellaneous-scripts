@@ -27,9 +27,11 @@ cl_string = resp.body[/Auth=(.*)/, 1]
 # Build our headers hash and add the authorization token
 headers["Authorization"] = "GoogleLogin auth=#{cl_string}"
 
-spreadsheets_uri = 'http://spreadsheets.google.com/feeds/spreadsheets/private/full'
-my_spreadsheets = get_feed(spreadsheets_uri, headers)
+# spreadsheets_uri = 'http://spreadsheets.google.com/feeds/spreadsheets/private/full'
+
+docs_uri = 'http://docs.google.com/feeds/docs/private/full'
+my_list = get_feed(docs_uri, headers)
 
 
-doc =  XmlSimple.xml_in(my_spreadsheets.body, 'KeyAttr' => 'name')
+doc =  XmlSimple.xml_in(my_list.body, 'KeyAttr' => 'name')
 pp doc
