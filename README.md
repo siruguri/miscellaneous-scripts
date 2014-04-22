@@ -18,7 +18,6 @@ It's still pretty primitive. Here's how it works:
 * Make a file called `gd_config.ini` - that's where you should put your Google auth secrets. See below for an example.
 * Run `mkdir data` at the command line.
 * Add this line in the config file you created in step 1 above.
-
     target_directory = 'data' # This is why you had to mkdir data above
 
 * Run the script like so, to start backing up from your root folder:
