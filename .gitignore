@@ -9,3 +9,4 @@ index.html
 *.json
 .DS_Store
 data/
+*.tar.gz

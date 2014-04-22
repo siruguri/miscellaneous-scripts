@@ -109,8 +109,8 @@ class GoogleBackup
       written = false
       item_data = metadata.data 
 
-      # Ignore Google Forms and images
-      if item_data['mimeType'] == 'application/vnd.google-apps.form' || /image/.match(item_data['mimeType'])
+      # Ignore Google Forms, compressed files and images
+      if item_data['mimeType'] == 'application/vnd.google-apps.form' || /image/.match(item_data['mimeType']) || /zip/.match(item_data['mimeType'])
         next
       end
       
