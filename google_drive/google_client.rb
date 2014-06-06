@@ -15,7 +15,7 @@ class GoogleBackup
   end
 
   def initialize(config, destination_folder:nil, client:nil)
-    @known_conversions = {'application/pdf' => 'pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xls', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx', 'text/plain' => 'txt'}
+    @known_conversions = {'text/tab-separated-values' => 'tsv', 'application/pdf' => 'pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xls', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx', 'text/plain' => 'txt', 'application/msword' => 'doc', "application/vnd.oasis.opendocument.text" => "odt"}
     @destination_folder = "."
 
     @config = config
@@ -95,6 +95,7 @@ class GoogleBackup
 
     @start_folder = @client.execute(api_method: @drive.children.list,
                                     parameters: list_options)
+    log("Set start folder to #{@start_folder}\n")
     log("Found #{@start_folder.data.items.count} items")
   end
 
@@ -118,7 +119,10 @@ class GoogleBackup
         child_backup = GoogleBackup.new(@config, destination_folder: "#{@destination_folder}/" + item_data['title'], client: @client )
         child_backup.set_start_folder(by_id: item_data['id'])
         child_backup.run_backups(formats)
+      elsif item_data['title'].nil? # There are sometimes backend errors that cause this to happen
+        log("Fatal error: this item returned unrecoverable errors (#{item_data.to_hash}).")
       else
+        log(">>> Using item_data: #{item_data.to_hash}")
         filename = item_data['title']
         filename = filename.gsub(/ /, '_')
         filename = filename.gsub(/[\/\\]/, '_')
@@ -211,7 +215,7 @@ end
 begin
   config=ParseConfig.new('gd_config.ini')
 rescue Errno::EACCES => e
-  log("There needs to be a config file called gd_config.ini (#{e.class}, #{e.message})")
+  $stderr.write("There needs to be a config file called gd_config.ini (#{e.class}, #{e.message})\n")
   exit -1
 end
 
@@ -228,9 +232,8 @@ if ARGV.size > 0
 end
 
 backup.set_start_folder(by_title_query: title)
-$stderr.write("Set start folder\n")
 
 #application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/]
+formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/]
 backup.run_backups(formats)
 

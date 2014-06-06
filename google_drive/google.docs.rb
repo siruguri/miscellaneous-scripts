@@ -1,3 +1,4 @@
+require 'parseconfig'
 require 'rubygems'
 require 'xmlsimple'
 require 'pp'
@@ -10,13 +11,20 @@ def get_feed(uri, headers=nil)
   end
 end
 
+begin
+  config=ParseConfig.new('google_client_config.ini')
+rescue Errno::EACCES => e
+  $stderr.write("There needs to be a config file called google_client_config.ini (#{e.class}, #{e.message})\n")
+  exit -1
+end
+
 http = Net::HTTP.new('www.google.com', 443)
 http.use_ssl = true
 http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
 # elements of auth 
 path = '/accounts/ClientLogin'
-data = 'accountType=HOSTED_OR_GOOGLE&Email=siruguri@gmail.com&Passwd=joponymdfsxzkith&service=wise'
+data = 'accountType=HOSTED_OR_GOOGLE&Email=#{config['client_login_email']}&Passwd=#{config['client_login_pwd']}&service=wise'
 headers = {"Content-Type"=>"application/x-www-form-urlencoded"}
 
 # Post the request and print out the response to retrieve our authentication token

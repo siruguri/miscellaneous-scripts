@@ -13,6 +13,13 @@ output_dir=nil
 
 class RenderWithoutCode < Redcarpet::Render::HTML
 
+  # Undo what SmartyPants did
+  def codespan(code)
+    code=code.gsub(/\&.squo;/, "'")
+    code=code.gsub(/\&.dquo;/, '"')
+    "<code>#{code}</code>"
+  end
+
   # Code will be in a separately styled div, with the class name 'mycode'
   # Undo what SmartyPants did
   def block_code(code, language)
@@ -53,8 +60,7 @@ class Processor
     begin
       input += File.open(filename).readlines.join("")
     rescue Errno::ENOENT => e
-      MyUtilities.error("#{filename} Markdown file not found.")
-      return nil
+      MyUtilities.error_exit("#{filename} Markdown file not found.")
     end
 
     basename = File.basename filename
