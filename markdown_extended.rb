@@ -17,13 +17,16 @@ class RenderWithoutCode < Redcarpet::Render::HTML
   def codespan(code)
     code=code.gsub(/\&.squo;/, "'")
     code=code.gsub(/\&.dquo;/, '"')
+
+    code=code.gsub(/</, "&lt;")
+    code=code.gsub(/>/, "&gt;")
     "<code>#{code}</code>"
   end
 
   # Code will be in a separately styled div, with the class name 'mycode'
   # Undo what SmartyPants did
   def block_code(code, language)
-
+    
     lines=code.split("\n")
     lines.map! do |line|
 
@@ -39,6 +42,14 @@ class RenderWithoutCode < Redcarpet::Render::HTML
       # to be in a span of their own
       line=line.gsub(/ /, "&nbsp;")
       line=line.gsub(/\.ps\./, " ")
+
+      line=line.gsub(/</, "&lt;")
+      line=line.gsub(/>/, "&gt;")
+      if /lt;/.match(line)
+        puts ">>> #{line}"
+      end
+
+      line
     end
     html_inner = lines.join("<br/>\n")
 

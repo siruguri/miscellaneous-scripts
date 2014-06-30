@@ -1,5 +1,6 @@
 require 'fileutils'
 require 'open-uri'
+require 'time'
 
 require 'rubygems'
 # require 'google-contacts'
@@ -81,6 +82,7 @@ class GoogleBackup
   end
 
   def set_start_folder(by_id:nil, by_query:nil, by_title_query:nil)
+    log("Starting to set start folder.")
     if by_id
       folder_id=by_id
     else
@@ -158,7 +160,14 @@ class GoogleBackup
         if download_links.empty?
           raise GoogleBackup::NoKnownFormat, "Couldn't find a known format in the list #{link_pairs.keys}}"
         end
-        make_local_copy(download_links.first[1], filename + ".#{convert_to_extension(download_links.first[0])}")
+
+        # TODO: Let's just take the first downloadable format - but do it better in the future.
+        target_file = filename + ".#{convert_to_extension(download_links.first[0])}"
+
+        if !File.exists?(full_path(target_file)) or (backup_is_older?(item_data, target_file))
+          log(">>> Backup is older... copying")
+          make_local_copy(download_links.first[1], target_file)
+        end
       end
     end
   end
@@ -177,6 +186,23 @@ class GoogleBackup
     end
       
     raise GoogleBackup::UnknownMimeType, "#{mime_type} unknown"
+  end
+
+  def full_path(filename)
+    # Use the current destination folder in the recursion to qualify a file
+    File.join(@destination_folder, filename)
+  end
+
+  def backup_is_older?(item_data, filename)
+    # This assumes filename exists
+    upload_mtime = item_data['modifiedDate']
+    download_mtime = File.mtime full_path(filename)
+
+    # TODO: What to do if the uploaded file is somehow modified EARLIER than the downloaded cache? (ie backup was modified?)
+    log(">>> Comparing backup mtime #{download_mtime} to #{upload_mtime}")
+
+    return true if download_mtime.to_f < upload_mtime.to_f
+    return false
   end
 
   def request_authorization
@@ -204,7 +230,7 @@ class GoogleBackup
     
     open(link, "Authorization" => "Bearer #{@client.authorization.access_token}") do |f|
       
-      wrt = File.open(File.join(@destination_folder, target_file), 'w')
+      wrt = File.open(full_path(target_file), 'w')
       while ( (buffer = f.read()) && buffer != '') do
         wrt.write buffer
       end
