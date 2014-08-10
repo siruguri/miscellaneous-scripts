@@ -32,6 +32,8 @@ class RenderWithoutCode < Redcarpet::Render::HTML
 
       line=line.gsub(/\&.squo;/, "'")
       line=line.gsub(/\&.dquo;/, '"')
+      line=line.gsub(/</, "&lt;")
+      line=line.gsub(/>/, "&gt;")
 
       # Adding my own special coloring scheme for comments and outputs
       # (for which I've added my own special markup sequence, -->
@@ -43,8 +45,6 @@ class RenderWithoutCode < Redcarpet::Render::HTML
       line=line.gsub(/ /, "&nbsp;")
       line=line.gsub(/\.ps\./, " ")
 
-      line=line.gsub(/</, "&lt;")
-      line=line.gsub(/>/, "&gt;")
       if /lt;/.match(line)
         puts ">>> #{line}"
       end

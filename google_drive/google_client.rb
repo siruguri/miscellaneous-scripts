@@ -17,13 +17,14 @@ class GoogleBackup
 
   def initialize(config, destination_folder:nil, client:nil)
     @known_conversions = {'text/tab-separated-values' => 'tsv', 'application/pdf' => 'pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xls', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx', 'text/plain' => 'txt', 'application/msword' => 'doc', "application/vnd.oasis.opendocument.text" => "odt"}
-    @destination_folder = "."
 
     @config = config
     if destination_folder
-      @destination_folder = File.join @destination_folder, destination_folder
+      @destination_folder = destination_folder
     elsif @config['target_directory']
-      @destination_folder = File.join @destination_folder, @config['target_directory']
+      @destination_folder = @config['target_directory']
+    else
+      @destination_folder = "."
     end
 
     if !Dir.exist? @destination_folder
@@ -112,49 +113,58 @@ class GoogleBackup
       written = false
       item_data = metadata.data 
 
-      # Ignore Google Forms, compressed files and images
-      if item_data['mimeType'] == 'application/vnd.google-apps.form' || /image/.match(item_data['mimeType']) || /zip/.match(item_data['mimeType'])
+      # Ignore fusion tables, Google Forms, compressed files and images, and trashed files
+      if item_data['mimeType'] == 'application/vnd.google-apps.fusiontable' || 
+          item_data['mimeType'] == 'application/vnd.jgraph.mxfile' ||
+          item_data['mimeType'] == 'application/octet-stream' ||
+          item_data['mimeType'] == 'application/vnd.google-apps.form' || 
+          /image/.match(item_data['mimeType']) || /zip/.match(item_data['mimeType']) || 
+          item_data['labels']['trashed']==true
         next
       end
       
       if /folder/.match item_data['mimeType']
-        child_backup = GoogleBackup.new(@config, destination_folder: "#{@destination_folder}/" + item_data['title'], client: @client )
+        child_f = item_data['title'].gsub(/\//, "_")
+
+        puts ">>> Gonna use #{@destination_folder}/#{child_f}"
+
+        child_backup = GoogleBackup.new(@config, destination_folder: "#{@destination_folder}/" + child_f, client: @client )
         child_backup.set_start_folder(by_id: item_data['id'])
         child_backup.run_backups(formats)
       elsif item_data['title'].nil? # There are sometimes backend errors that cause this to happen
         log("Fatal error: this item returned unrecoverable errors (#{item_data.to_hash}).")
       else
         log(">>> Using item_data: #{item_data.to_hash}")
+
         filename = item_data['title']
         filename = filename.gsub(/ /, '_')
         filename = filename.gsub(/[\/\\]/, '_')
         log(">>> Using filename #{filename}")
 
-        has_download = false
         if item_data['downloadUrl'] or item_data['exportLinks']
           if item_data['downloadUrl']
             link_pairs = {item_data['mimeType'] => item_data['downloadUrl']}
           else
             link_pairs = item_data['exportLinks'].to_hash 
           end
-          has_download=true
-        end
-        if !has_download
+        else
           puts "No export links."
           puts item_data.to_hash
           exit -1
         end
           
         # Return an array of links that correspond to matched formats ... assuming format strings are unique in the 
-        # list of download links
+        # list of download links. Detects certain undownloadable formats so that we can ignore them.
         download_links = []
         formats.each do |fmt|
           matched_pair = link_pairs.select do |k, v|
-            log("Looking at #{fmt} with #{k}")
+            log("Looking at #{fmt} with #{k} -> #{v}")
             fmt.match k
           end 
           download_links << [matched_pair.keys[0], matched_pair[matched_pair.keys[0]]] unless matched_pair.empty?
         end
+
+        #
 
         # Exits if no format was known
         if download_links.empty?
@@ -227,7 +237,7 @@ class GoogleBackup
 
   def make_local_copy(link, target_file)
     log(">>> Using download link value <#{link}>, writing to #{@destination_folder}/#{target_file}")
-    
+
     open(link, "Authorization" => "Bearer #{@client.authorization.access_token}") do |f|
       
       wrt = File.open(full_path(target_file), 'w')
