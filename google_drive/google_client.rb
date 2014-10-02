@@ -31,7 +31,7 @@ class GoogleBackup
       Dir.mkdir @destination_folder
     end
 
-    log("Starting backups into #{@destination_folder}")
+    log("Starting backups into #{@destination_folder}", 1)
 
     if client
       @client=client
@@ -83,7 +83,7 @@ class GoogleBackup
   end
 
   def set_start_folder(by_id:nil, by_query:nil, by_title_query:nil)
-    log("Starting to set start folder.")
+    log("Starting to set start folder.", 3)
     if by_id
       folder_id=by_id
     else
@@ -93,19 +93,18 @@ class GoogleBackup
     list_options = {'folderId' => folder_id}
     if by_title_query
       list_options.merge!({'q' => "title contains '#{by_title_query}'"})
-      log("Query folder with #{list_options}")
+      log("Query folder with #{list_options}", 3)
     end
 
     @start_folder = @client.execute(api_method: @drive.children.list,
                                     parameters: list_options)
-    log("Set start folder to #{@start_folder}\n")
-    log("Found #{@start_folder.data.items.count} items")
+    log("Found #{@start_folder.data.items.count} items in folder", 2)
   end
 
   def run_backups(formats)
     filename = 'tmp'
     @start_folder.data.items.each do |item|
-      log("Getting #{item.id}")
+      log("Getting item with ID #{item.id}", 3)
       metadata = @client.execute(api_method: @drive.files.get,
                                  parameters: {
                                    "fileId" => item.id
@@ -114,12 +113,12 @@ class GoogleBackup
       item_data = metadata.data 
 
       # Ignore fusion tables, Google Forms, compressed files and images, and trashed files
-      if item_data['mimeType'] == 'application/vnd.google-apps.fusiontable' || 
+      if item_data['mimeType'] && (item_data['mimeType'] == 'application/vnd.google-apps.fusiontable' || 
           item_data['mimeType'] == 'application/vnd.jgraph.mxfile' ||
           item_data['mimeType'] == 'application/octet-stream' ||
           item_data['mimeType'] == 'application/vnd.google-apps.form' || 
-          /image/.match(item_data['mimeType']) || /zip/.match(item_data['mimeType']) || 
-          item_data['labels']['trashed']==true
+          /image/.match(item_data['mimeType']) || /zip/.match(item_data['mimeType'])) || 
+          (item_data['labels'] && item_data['labels']['trashed'])==true
         next
       end
       
@@ -134,12 +133,12 @@ class GoogleBackup
       elsif item_data['title'].nil? # There are sometimes backend errors that cause this to happen
         log("Fatal error: this item returned unrecoverable errors (#{item_data.to_hash}).")
       else
-        log(">>> Using item_data: #{item_data.to_hash}")
+        log(">>> Using item_data: #{item_data.to_hash}", 2)
 
         filename = item_data['title']
         filename = filename.gsub(/ /, '_')
         filename = filename.gsub(/[\/\\]/, '_')
-        log(">>> Using filename #{filename}")
+        log(">>> Using filename #{filename}", 2)
 
         if item_data['downloadUrl'] or item_data['exportLinks']
           if item_data['downloadUrl']
@@ -158,7 +157,7 @@ class GoogleBackup
         download_links = []
         formats.each do |fmt|
           matched_pair = link_pairs.select do |k, v|
-            log("Looking at #{fmt} with #{k} -> #{v}")
+            log("Looking at #{fmt} with #{k} -> #{v}", 3)
             fmt.match k
           end 
           download_links << [matched_pair.keys[0], matched_pair[matched_pair.keys[0]]] unless matched_pair.empty?
@@ -175,7 +174,7 @@ class GoogleBackup
         target_file = filename + ".#{convert_to_extension(download_links.first[0])}"
 
         if !File.exists?(full_path(target_file)) or (backup_is_older?(item_data, target_file))
-          log(">>> Backup is older... copying")
+          log(">>> Backup is older... copying", 1)
           make_local_copy(download_links.first[1], target_file)
         end
       end
@@ -184,8 +183,8 @@ class GoogleBackup
 
   private
 
-  def log (mesg)
-    if @config['debug']
+  def log (mesg, level=0)
+    if @config['debug'] and level <= @config['debug'].to_i
       $stderr.write("#{mesg}\n")
     end
   end
@@ -209,10 +208,9 @@ class GoogleBackup
     download_mtime = File.mtime full_path(filename)
 
     # TODO: What to do if the uploaded file is somehow modified EARLIER than the downloaded cache? (ie backup was modified?)
-    log(">>> Comparing backup mtime #{download_mtime} to #{upload_mtime}")
+    log(">>> Comparing local backup time #{download_mtime} to #{upload_mtime}", 1)
 
-    return true if download_mtime.to_f < upload_mtime.to_f
-    return false
+    download_mtime.to_f < upload_mtime.to_f
   end
 
   def request_authorization
@@ -236,7 +234,7 @@ class GoogleBackup
   end
 
   def make_local_copy(link, target_file)
-    log(">>> Using download link value <#{link}>, writing to #{@destination_folder}/#{target_file}")
+    log(">>> Using download link value <#{link}>, writing to #{@destination_folder}/#{target_file}", 1)
 
     open(link, "Authorization" => "Bearer #{@client.authorization.access_token}") do |f|
       
