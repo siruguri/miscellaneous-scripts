@@ -1,6 +1,7 @@
 require 'fileutils'
 require 'open-uri'
 require 'time'
+require 'pp'
 
 require 'rubygems'
 # require 'google-contacts'
@@ -126,7 +127,6 @@ class GoogleBackup
         child_f = item_data['title'].gsub(/\//, "_")
 
         puts ">>> Gonna use #{@destination_folder}/#{child_f}"
-
         child_backup = GoogleBackup.new(@config, destination_folder: "#{@destination_folder}/" + child_f, client: @client )
         child_backup.set_start_folder(by_id: item_data['id'])
         child_backup.run_backups(formats)
