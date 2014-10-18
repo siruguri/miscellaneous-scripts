@@ -25,8 +25,8 @@ class Combiner
     word_lists = read_files @file_list
     @logger.debug word_lists
 
-    if word_lists == nil
-      MyUtilities.error_exit 'Something wrong with file list'
+    if word_lists.nil?
+      MyUtilities.error_exit 'Something wrong with file list - no filename matched the pattern NN_<blah>.txt. Maybe you forgot the underscore?'
     end
 
     seqs.each do |seq|
@@ -34,6 +34,9 @@ class Combiner
 
       # Dynamic programming!
       seq.each do |key|
+        if word_lists[key.to_i].nil?
+          MyUtilities.error_exit "Sequences required a file starting with #{key.to_i}_, but that doesn't exist."
+        end
         copy_list = cross_prod copy_list, word_lists[key.to_i]
       end
       @logger.debug "Adding ---\n#{copy_list}\n---"
@@ -105,7 +108,7 @@ end
 seqs = [ [1,3,4,5], [2,3,4], [3,4,5], [1,3,5]]
 # seqs = [ [1,2] ]
 
-if !Dir.exists? ARGV[0]
+if ARGV.size < 1 or !Dir.exists? ARGV[0]
   MyUtilities.error_exit("Supply a directory with files as first arg, and a filename containing sequences")
 end
 
