@@ -41,12 +41,8 @@ class UrlProcessor
 
       unless TargetUrl.find_by_url(new_url)
         puts ">> adding new target #{new_url} for queue id #{@url_rec.my_queue_id}"
-
-        TargetUrl.find_or_create_by(url: new_url) do |t|
-          t.first_added=Time.now
-          t.number_of_crawls=0
-          t.my_queue_id=@url_rec.my_queue_id
-        end
+        t=TargetUrl.new(url: new_url, first_added: Time.now, number_of_crawls: 0, my_queue_id: @url_rec.my_queue_id)
+        t.save
       end
     end
 
