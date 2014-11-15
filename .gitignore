@@ -13,3 +13,4 @@ data/
 *.tar.gz
 tmp/
 backups/
+bin/

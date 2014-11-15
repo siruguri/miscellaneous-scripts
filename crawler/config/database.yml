@@ -1,4 +1,4 @@
 adapter: sqlite3
-database:  db/db.sqlite
+database:  db/db.sqlite.20141209
 pool: 5
 timeout: 10000
