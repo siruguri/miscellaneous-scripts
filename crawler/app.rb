@@ -1,9 +1,9 @@
 require 'open-uri'
 require 'yaml'
-
 require 'rubygems'
 require 'bundler/setup'
 
+require 'byebug'
 Bundler.require(:default)
 
 dbconfig = YAML::load(File.open('config/database.yml'))
