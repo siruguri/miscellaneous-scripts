@@ -17,7 +17,9 @@ class GoogleBackup
   end
 
   def initialize(config, destination_folder:nil, client:nil)
-    @known_conversions = {'text/tab-separated-values' => 'tsv', 'application/pdf' => 'pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xls', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx', 'text/plain' => 'txt', 'application/msword' => 'doc', "application/vnd.oasis.opendocument.text" => "odt"}
+    @known_conversions = {'text/tab-separated-values' => 'tsv', 'application/pdf' => 'pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xls', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx', 'text/plain' => 'txt', 'application/msword' => 'doc', "application/vnd.oasis.opendocument.text" => "odt", 'application/illustrator' => 'ai'}
+
+    @exclusions = [".3gpp"]
 
     @config = config
     if destination_folder
@@ -157,7 +159,7 @@ class GoogleBackup
         download_links = []
         formats.each do |fmt|
           matched_pair = link_pairs.select do |k, v|
-            log("Looking at #{fmt} with #{k} -> #{v}", 3)
+           log("Looking at #{fmt} with #{k} -> #{v}", 3)
             fmt.match k
           end 
           download_links << [matched_pair.keys[0], matched_pair[matched_pair.keys[0]]] unless matched_pair.empty?
@@ -166,22 +168,30 @@ class GoogleBackup
         #
 
         # Exits if no format was known
-        if download_links.empty?
+        if download_links.empty? and !excluded(link_pairs.keys[0])
           raise GoogleBackup::NoKnownFormat, "Couldn't find a known format in the list #{link_pairs.keys}}"
         end
+        unless download_links.empty?
+          # TODO: Let's just take the first downloadable format - but do it better in the future.
+          target_file = filename + ".#{convert_to_extension(download_links.first[0])}"
 
-        # TODO: Let's just take the first downloadable format - but do it better in the future.
-        target_file = filename + ".#{convert_to_extension(download_links.first[0])}"
-
-        if !File.exists?(full_path(target_file)) or (backup_is_older?(item_data, target_file))
-          log(">>> Backup is older... copying", 1)
-          make_local_copy(download_links.first[1], target_file)
+          if !File.exists?(full_path(target_file)) or (backup_is_older?(item_data, target_file))
+            log(">>> Backup is older... copying", 1)
+            make_local_copy(download_links.first[1], target_file)
+          end
         end
       end
     end
   end
 
   private
+
+  def excluded(fmt)
+    (@exclusions.select do |r|
+      re=Regexp.new(r)
+      re.match fmt
+    end).size > 0
+  end
 
   def log (mesg, level=0)
     if @config['debug'] and level <= @config['debug'].to_i
@@ -268,6 +278,6 @@ end
 backup.set_start_folder(by_title_query: title)
 
 #application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/]
+formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/, /application.illustrator/]
 backup.run_backups(formats)
 

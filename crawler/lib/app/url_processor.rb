@@ -1,4 +1,6 @@
 class UrlProcessor
+  @@backoff_time = 1
+
   def initialize(url_rec)
     @url_rec=url_rec
   end
@@ -10,19 +12,25 @@ class UrlProcessor
       url=@url_rec.url
       if re.match url
         attempted_class="Parsers::#{parser_rec.class_name}"
-        puts ">>> Running #{attempted_class} process for #{url}"
+        recd_200=false
         begin
-          dom=Nokogiri::HTML(open(url, {ssl_verify_mode: OpenSSL::SSL::VERIFY_NONE}))
+          dom=Nokogiri::HTML get_url_stream(url)
         rescue OpenURI::HTTPError => e
           puts ">>> Error in fetching - ignoring because of #{e.message}"
+          if /404/.match e.message
+            update_url_rec_in_db
+          end
         else
+          recd_200=true
+        end
+
+        if recd_200
+          puts ">>> Running #{attempted_class} process for #{url}"
           json=(attempted_class).constantize.new(@url_rec).produce(dom)
 
           unless json[:status]=='error'
             store_json json
-            @url_rec.number_of_crawls+=1
-            @url_rec.last_crawled=Time.now
-            @url_rec.save
+            update_url_rec_in_db
           end
         end
       end
@@ -30,6 +38,25 @@ class UrlProcessor
   end
 
   private
+  def get_url_stream(url)
+    try_again=true
+
+    while try_again
+      begin
+        stream = open(url, {ssl_verify_mode: OpenSSL::SSL::VERIFY_NONE})
+      rescue Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETDOWN, SocketError => e
+        $stderr.write("Backing off for #{@@backoff_time} seconds\n")
+        sleep @@backoff_time
+        @@backoff_time *= 2
+      else
+        try_again=false
+        @@backoff_time = 1
+      end
+    end
+
+    stream
+  end
+
   def store_json(json)
     url = @url_rec.url
     json[:crawl_list].each do |href|
@@ -49,6 +76,12 @@ class UrlProcessor
     u=UrlPayload.find_or_initialize_by(target_url: @url_rec)
     u.payload = json[:payload]
     u.save
+  end
+
+  def update_url_rec_in_db
+    @url_rec.number_of_crawls+=1
+    @url_rec.last_crawled=Time.now
+    @url_rec.save
   end
 end
 

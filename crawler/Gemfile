@@ -1,12 +1,10 @@
-source 'http://rubygems.org'
+source 'https://rubygems.org'
 
-gem 'open-uri'
 gem 'nokogiri'
 
 gem 'sqlite3'
-gem 'active_record'
-gem 'yaml'
+gem 'activerecord', require: 'active_record'
 gem 'logger'
 
 gem 'byebug'
- 
+gem 'pry-byebug'
