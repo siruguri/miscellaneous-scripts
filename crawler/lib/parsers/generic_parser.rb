@@ -22,6 +22,8 @@ module Parsers
         prefix=@url_rec.url
       end
 
+      # If there are query parameters, remove them.
+      prefix = prefix.gsub(/\?[^\/]*$/, '')
       crawl_url = prefix + href
       puts ">> found new target at #{crawl_url}"      
 
