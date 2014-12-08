@@ -45,7 +45,7 @@ class UrlProcessor
     while try_again
       begin
         stream = open(url, {ssl_verify_mode: OpenSSL::SSL::VERIFY_NONE})
-      rescue Errno::EADDRNOTAVAIL, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETDOWN, SocketError => e
+      rescue Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETDOWN, SocketError => e
         $stderr.write("Backing off for #{@@backoff_time} seconds\n")
         sleep @@backoff_time
         @@backoff_time *= 2
