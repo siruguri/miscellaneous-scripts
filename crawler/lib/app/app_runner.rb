@@ -19,13 +19,15 @@ class AppRunner
 
   def run
     target_urls = MyQueue.find_by_key(self.config(:queue_name)).target_urls.where(number_of_crawls: [0, nil])
+    url_processor = UrlProcessor.new
     
     # Infinite loop until everything's been crawled at least once.
     while !target_urls.empty?
       total = target_urls.size
       target_urls.each_with_index do |url_rec, idx|
         puts ">>> Processing #{idx} / #{total}"
-        UrlProcessor.new(url_rec).process
+        url_processor.url_rec=url_rec
+        url_processor.process
         sleep self.config(:sleep_interval)
       end
 

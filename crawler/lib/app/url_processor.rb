@@ -1,7 +1,8 @@
 class UrlProcessor
   @@backoff_time = 1
 
-  def initialize(url_rec)
+  attr_accessor :url_rec
+  def initialize(url_rec=nil)
     @url_rec=url_rec
   end
 
