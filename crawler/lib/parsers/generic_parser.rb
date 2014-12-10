@@ -2,7 +2,7 @@ module Parsers
   class GenericParser
     protected
     def add_crawl_link(a_node)
-      if a_node.name.downcase.strip != 'a'
+      if a_node.name.downcase.strip != 'a' or (href=a_node.attr 'href').nil?
         return nil
       end
 
