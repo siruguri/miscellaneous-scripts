@@ -15,7 +15,9 @@ class UrlProcessor
         attempted_class="Parsers::#{parser_rec.class_name}"
         recd_200=false
         begin
-          dom=Nokogiri::HTML get_url_stream(url)
+          html_resp = get_url_stream(url)
+	  puts ">>> Received Net HTTP response"
+          dom=Nokogiri::HTML  html_resp
         rescue OpenURI::HTTPError => e
           puts ">>> Error in fetching - ignoring because of #{e.message}"
           if /404/.match e.message
@@ -44,6 +46,7 @@ class UrlProcessor
 
     while try_again
       begin
+        puts ">>> Starting NetHTTP fetch"
         stream = open(url, {ssl_verify_mode: OpenSSL::SSL::VERIFY_NONE})
       rescue Errno::ECONNRESET, Errno::ECONNREFUSED, Errno::EADDRNOTAVAIL, Errno::ETIMEDOUT, Errno::EHOSTUNREACH, Errno::ENETDOWN, SocketError => e
         $stderr.write("Backing off for #{@@backoff_time} seconds\n")
