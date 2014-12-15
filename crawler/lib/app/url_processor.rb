@@ -70,7 +70,7 @@ class UrlProcessor
         new_url=href
       end
 
-      unless TargetUrl.find_by_url(new_url)
+      unless TargetUrl.find_by_url(new_url) or /b=0$/.match(new_url)
         puts ">> adding new target #{new_url} for queue id #{@url_rec.my_queue_id}"
         t=TargetUrl.new(url: new_url, first_added: Time.now, number_of_crawls: 0, my_queue_id: @url_rec.my_queue_id)
         t.save
