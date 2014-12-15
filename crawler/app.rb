@@ -5,7 +5,6 @@ require 'rubygems'
 require 'bundler/setup'
 
 require 'byebug'
-require 'pry-byebug'
 
 Bundler.require(:default)
 
