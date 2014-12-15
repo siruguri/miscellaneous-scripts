@@ -25,6 +25,10 @@ class AppRunner
     while !target_urls.empty?
       total = target_urls.size
       target_urls.each_with_index do |url_rec, idx|
+        # special case for Yahoo Dir - don't crawl URLs pointing to page 0. Should put this in a 
+        # blacklist feature later.
+        next if /b=0$/.match url_rec.url
+
         puts ">>> Processing #{idx} / #{total}"
         url_processor.url_rec=url_rec
         url_processor.process
