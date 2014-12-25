@@ -20,6 +20,11 @@ module Parsers
         prefix=uri.scheme + "://" + uri.host
       else
         prefix=@url_rec.url
+
+        # Prefixes to relative URLs must end in a /
+        if !(/\/$/.match prefix)
+          prefix += '/'
+        end
       end
 
       # If there are query parameters, remove them.
