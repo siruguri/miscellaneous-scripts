@@ -65,13 +65,19 @@ class SQLiteOrm
     deleted_count
   end
 
+  def count_b0s
+    cmd = 'select count(*) from target_urls where url like "%?b=0"'
+    puts run_sql(cmd)
+  end
+  
   def delete_payloads
     cmd = 'delete from url_payloads '
     run_sql cmd
     cmd = 'vacuum'
     run_sql cmd
   end
-  
+
+  def 
   def update_urls
     stmt_string1 = "select * from target_urls where url like '%b=%'"
     stmt = SQLite3::Statement.new(@db_conn, stmt_string1);
