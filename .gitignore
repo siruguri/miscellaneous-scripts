@@ -14,3 +14,5 @@ data/
 tmp/
 backups/
 bin/
+outputs
+*txt

@@ -17,7 +17,13 @@ class GoogleBackup
   end
 
   def initialize(config, destination_folder:nil, client:nil)
-    @known_conversions = {'text/tab-separated-values' => 'tsv', 'application/pdf' => 'pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xls', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx', 'text/plain' => 'txt', 'application/msword' => 'doc', "application/vnd.oasis.opendocument.text" => "odt", 'application/illustrator' => 'ai'}
+    @known_conversions = {
+      'text/tab-separated-values' => 'tsv', 'application/pdf' => 'pdf',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xls',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx', 'text/plain' => 'txt',
+      'application/msword' => 'doc', "application/vnd.oasis.opendocument.text" => "odt", 'application/illustrator' => 'ai',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'ppt',
+    }
 
     @exclusions = [".3gpp"]
 
@@ -116,7 +122,8 @@ class GoogleBackup
       item_data = metadata.data 
 
       # Ignore fusion tables, Google Forms, compressed files and images, and trashed files
-      if item_data['mimeType'] && (item_data['mimeType'] == 'application/vnd.google-apps.fusiontable' || 
+      if item_data['mimeType'] && (item_data['mimeType'] == 'application/vnd.google-apps.map' ||
+                                   item_data['mimeType'] == 'application/vnd.google-apps.fusiontable' || 
           item_data['mimeType'] == 'application/vnd.jgraph.mxfile' ||
           item_data['mimeType'] == 'application/octet-stream' ||
           item_data['mimeType'] == 'application/vnd.google-apps.form' || 
@@ -278,6 +285,6 @@ end
 backup.set_start_folder(by_title_query: title)
 
 #application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/, /application.illustrator/]
+formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/, /application.illustrator/, /vnd.openxmlformats.officedocument.presentationml.presentation/]
 backup.run_backups(formats)
 
