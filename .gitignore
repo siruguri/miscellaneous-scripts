@@ -16,3 +16,4 @@ backups/
 bin/
 outputs
 *txt
+*/passwords.txt
