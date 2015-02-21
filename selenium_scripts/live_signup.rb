@@ -4,8 +4,10 @@ class SeleniumBot
   def initialize
     @words = File.open('/usr/share/dict/words').readlines
     @driver = Selenium::WebDriver.for :firefox
-    @driver.navigate.to "http://signup.live.com/"
-    @data = YAML.load_file 'passwords.txt'
+    @driver.navigate.to "http://signup.live.com/"    
+
+    # Set on Feb 20
+    @uid_count = 4
   end
   
   def rand_word
@@ -13,9 +15,11 @@ class SeleniumBot
   end
 
   def sign_up
-    uid=@data['login_info'][0]['uid']
-    pwd=@data['login_info'][0]['pwd']
-    inputs = [rand_word, rand_word, 'liveaccount_03@yahoo.com', 'Barter332', 'Barter332', 77005, '5102334511']
+    uid = 'liveaccount_' + sprintf("%02d", @uid_count) + '@yahoo.com'
+    pwd=rand_word.capitalize + '8441'
+    puts ">>> store these: #{uid}, #{pwd}"
+
+    inputs = [rand_word, rand_word, uid, pwd, pwd, 77005, '5102334511']
     ['iFirstName', 'iLastName', 'imembernameeasi', 'iPwd', 'iRetypePwd', 'iZipCode', 'iPhone'].each_with_index do |elt_name, idx|
       elt = @driver.find_element(:name, elt_name)
       elt.send_keys inputs[idx]
