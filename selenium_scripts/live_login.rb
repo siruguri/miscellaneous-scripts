@@ -49,6 +49,8 @@ class LiveLogin
     sleep 2
     @driver.navigate.to "http://login.live.com/"
     sleep 2
+
+    puts "Logging in #{uid}"
     elt_uid = @driver.find_element(:name, 'login')
     elt_uid.send_keys(uid)
 
