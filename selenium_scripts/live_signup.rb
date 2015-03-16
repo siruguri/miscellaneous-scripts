@@ -1,13 +1,13 @@
 require "selenium-webdriver"
 
 class SeleniumBot
-  def initialize
+  def initialize(counter)
     @words = File.open('/usr/share/dict/words').readlines
     @driver = Selenium::WebDriver.for :firefox
     @driver.navigate.to "http://signup.live.com/"    
 
-    # Set on Feb 20
-    @uid_count = 4
+    # Set on Mar 15
+    @uid_count = counter
   end
   
   def rand_word
@@ -39,8 +39,12 @@ class SeleniumBot
   end
 end
 
-sbot=SeleniumBot.new
-sbot.sign_up
+if ARGV.size == 0
+  puts "Need a number to initialize the Yahoo account password with. Check passwords.txt"
+else
+  sbot=SeleniumBot.new ARGV[0]
+  sbot.sign_up
+end
 #sbot.close
 
 

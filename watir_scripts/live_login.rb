@@ -70,7 +70,7 @@ class LiveLogin
     @driver.wait
     puts "Reached start page: #{@driver.title}"
     
-    (1..2).each do |turn|
+    (1..32).each do |turn|
       # This sleep might be necessary to get the Javascript to finish getting points.
       sleep 2
       puts "Driver sees: #{@driver.span(id: 'id_rc').outer_html} points"
