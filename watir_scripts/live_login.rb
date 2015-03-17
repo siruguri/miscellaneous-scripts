@@ -4,9 +4,11 @@ require 'pry-byebug'
 
 class LiveLogin
   def initialize
-    @driver = Watir::Browser.new :phantomjs
+    @driver = Watir::Browser.new :chrome
+    @driver.window.resize_to(1024, 928)
+    
     @words = File.open('/usr/share/dict/words').readlines
-    @login_data = YAML.load_file 'passwords.txt'
+    @login_data = YAML.load_file(File.join(File.dirname(__FILE__), 'passwords.txt'))
   end
 
   def run_all
@@ -50,9 +52,12 @@ class LiveLogin
   end
   
   def live_login(uid, pwd)
-    @driver.goto "http://login.live.com/"
-    @driver.wait
+    begin
+      @driver.goto "http://login.live.com/"
+    rescue Exception => e
+    end
 
+    @driver.wait
     puts "Logging in #{uid}"
     elt_uid = @driver.text_field(name: 'login')
     elt_uid.set(uid)
@@ -77,10 +82,16 @@ class LiveLogin
       elt = @driver.text_field(name: 'q')
       elt.set ''
 
-      random_word = @words[Random.rand(100000)].chomp
+      random_word = @words[Random.rand(90000)].chomp
       
       elt.set random_word
-      @driver.button(id: 'sb_form_go').click
+
+      # Wait for autocomplete to fetch content and then get the button
+      sleep 1
+      btn = @driver.button(id: 'sb_form_go')
+
+      puts "Searching for #{random_word}"
+      btn.click
       @driver.wait
     end
   end
