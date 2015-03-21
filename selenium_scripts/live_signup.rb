@@ -17,16 +17,27 @@ class SeleniumBot
   def sign_up
     uid = 'liveaccount_' + sprintf("%02d", @uid_count) + '@yahoo.com'
     pwd=rand_word.capitalize + '8441'
-    puts ">>> store these: #{uid}, #{pwd}"
+    puts ">>> store these:\n  -\n    uid: #{uid}\n    pwd: #{pwd}\n"
 
-    inputs = [rand_word, rand_word, uid, pwd, pwd, 77005, '5102334511']
-    ['iFirstName', 'iLastName', 'imembernameeasi', 'iPwd', 'iRetypePwd', 'iZipCode', 'iPhone'].each_with_index do |elt_name, idx|
+    inputs = [rand_word, rand_word, uid, pwd, pwd, '5102334511']
+    ['FirstName', 'LastName', 'MemberName', 'Password', 'RetypePassword', 'PhoneNumber'].each_with_index do |elt_name, idx|
       elt = @driver.find_element(:name, elt_name)
+
+      puts "Filling in #{elt_name} with #{inputs[idx]}"
+
+      if elt_name == 'Password' or elt_name == 'RetypePassword' or elt_name == 'PhoneNumber'
+        elt.send_keys ''
+        sleep 1
+      end
+
       elt.send_keys inputs[idx]
+
+      wait = Selenium::WebDriver::Wait.new(:timeout => 5)
+      wait.until { fillin = @driver.find_element(:name, 'FirstName'); fillin.enabled? }
     end
 
     # Drop downs
-    [['iBirthMonth', 'January'], ['iBirthDay', '8'], ['iBirthYear', '1957'], ['iGender', 'Male']].each do |pair|
+    [['BirthMonth', 'January'], ['BirthDay', '8'], ['BirthYear', '1957'], ['Gender', 'Male']].each do |pair|
       
       dd_parent = @driver.find_element :name, pair[0]
       option = Selenium::WebDriver::Support::Select.new(dd_parent)
