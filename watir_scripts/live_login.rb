@@ -45,7 +45,7 @@ class LiveLogin
 
 
     puts "Logging out #{@uid}"
-    @driver.span(id: 'id_n').click
+    @driver.span(id: 'id_n').when_present.click
 #    Watir::Wait.until { @driver.element?(class: 'id_link_text') }
 
     @driver.span(class: 'id_link_text').when_present.click
