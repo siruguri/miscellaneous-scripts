@@ -2,7 +2,7 @@ require "watir-webdriver"
 
 require 'pry-byebug'
 
-class LiveLogin
+class GenericCrawler
   attr_reader :driver
   
   def initialize
@@ -14,11 +14,14 @@ class LiveLogin
   def get(u)
     @driver.goto u
   end
+
+  def response
+    @driver.response
+  end
 end
 
-l=LiveLogin.new
-byebug
+l=GenericCrawler.new
 
-l.get('http://mobile.nytimes.com/2015/03/22/opinion/sunday/how-english-ruined-indian-literature.html')
-
-puts l.response.body
+url = ARGV[0] || 'http://www.google.com'
+l.get url
+puts l.driver.body.html

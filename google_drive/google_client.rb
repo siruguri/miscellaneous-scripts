@@ -24,7 +24,7 @@ class GoogleBackup
       'application/msword' => 'doc', "application/vnd.oasis.opendocument.text" => "odt", 'application/illustrator' => 'ai',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'ppt',
       'application/rtf' => 'rtf',
-      'text/css' => 'css',
+      'text/css' => 'css', 'text/csv' => 'csv',
       'application/xml' => 'xml',
     }
 
@@ -183,11 +183,9 @@ class GoogleBackup
           download_links << [matched_pair.keys[0], matched_pair[matched_pair.keys[0]]] unless matched_pair.empty?
         end
 
-        #
-
         # Exits if no format was known
         if download_links.empty? and !excluded(link_pairs.keys[0])
-          raise GoogleBackup::NoKnownFormat, "Couldn't find a known format in the list #{link_pairs.keys}}"
+          raise GoogleBackup::NoKnownFormat, "Couldn't find a known format in the list for #{link_pairs.keys}}"
         end
         unless download_links.empty?
           # TODO: Let's just take the first downloadable format - but do it better in the future.
@@ -293,7 +291,7 @@ end
 backup.set_start_folder(by_title_query: title)
 
 #application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/, /application.illustrator/, /vnd.openxmlformats.officedocument.presentationml.presentation/, /vnd.jgraph.mxfile.realtime/, /application.rtf/, /text.css/, /application.xml/]
+formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/, /application.illustrator/, /vnd.openxmlformats.officedocument.presentationml.presentation/, /vnd.jgraph.mxfile.realtime/, /application.rtf/, /text.css/, /application.xml/, /text.csv/]
 
 backup.run_backups(formats)
 
