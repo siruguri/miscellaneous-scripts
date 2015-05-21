@@ -9,6 +9,10 @@ class LiveLogin
     @login_data = YAML.load_file 'passwords.txt'
   end
 
+  def get(u)
+    @driver.goto u
+  end
+  
   def run_all
     @login_data['login_info'].each do |login_info_hash|
       @uid = uid = login_info_hash['uid']

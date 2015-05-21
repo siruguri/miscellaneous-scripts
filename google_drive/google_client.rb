@@ -23,9 +23,12 @@ class GoogleBackup
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx', 'text/plain' => 'txt',
       'application/msword' => 'doc', "application/vnd.oasis.opendocument.text" => "odt", 'application/illustrator' => 'ai',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'ppt',
+      'application/rtf' => 'rtf',
+      'text/css' => 'css', 'text/csv' => 'csv',
+      'application/xml' => 'xml',
     }
 
-    @exclusions = [".3gpp"]
+    @exclusions = [/3gpp/, /\.realtime/, /mp4/, /quicktime/, /mpeg/, /wmv/]
 
     @config = config
     if destination_folder
@@ -122,11 +125,13 @@ class GoogleBackup
       item_data = metadata.data 
 
       # Ignore fusion tables, Google Forms, compressed files and images, and trashed files
-      if item_data['mimeType'] && (item_data['mimeType'] == 'application/vnd.google-apps.map' ||
-                                   item_data['mimeType'] == 'application/vnd.google-apps.fusiontable' || 
+      if item_data['mimeType'] &&
+         (item_data['mimeType'] == 'application/vnd.google-apps.map' ||
+          item_data['mimeType'] == 'application/vnd.google-apps.fusiontable' ||
           item_data['mimeType'] == 'application/vnd.jgraph.mxfile' ||
           item_data['mimeType'] == 'application/octet-stream' ||
           item_data['mimeType'] == 'application/vnd.google-apps.form' || 
+          item_data['mimeType'] == 'application/vnd.jgraph.mxfile.realtime' ||
           /image/.match(item_data['mimeType']) || /zip/.match(item_data['mimeType'])) || 
           (item_data['labels'] && item_data['labels']['trashed'])==true
         next
@@ -161,8 +166,14 @@ class GoogleBackup
           exit -1
         end
           
-        # Return an array of links that correspond to matched formats ... assuming format strings are unique in the 
-        # list of download links. Detects certain undownloadable formats so that we can ignore them.
+        # Return an array of links that correspond to matched formats
+        # ... assuming format strings are unique in the list of
+        # download links. Detects certain undownloadable formats so
+        # that we can ignore them. If you want to handle a new format,
+        # do 2 things: 1. Put it in the formats array at the end of
+        # the script, and add a conversion in the GoogleBackup class
+        # initializer above
+
         download_links = []
         formats.each do |fmt|
           matched_pair = link_pairs.select do |k, v|
@@ -172,11 +183,9 @@ class GoogleBackup
           download_links << [matched_pair.keys[0], matched_pair[matched_pair.keys[0]]] unless matched_pair.empty?
         end
 
-        #
-
         # Exits if no format was known
         if download_links.empty? and !excluded(link_pairs.keys[0])
-          raise GoogleBackup::NoKnownFormat, "Couldn't find a known format in the list #{link_pairs.keys}}"
+          raise GoogleBackup::NoKnownFormat, "Couldn't find a known format in the list for #{link_pairs.keys}}"
         end
         unless download_links.empty?
           # TODO: Let's just take the first downloadable format - but do it better in the future.
@@ -194,10 +203,7 @@ class GoogleBackup
   private
 
   def excluded(fmt)
-    (@exclusions.select do |r|
-      re=Regexp.new(r)
-      re.match fmt
-    end).size > 0
+    @exclusions.select { |r| r.match fmt }.size > 0
   end
 
   def log (mesg, level=0)
@@ -285,6 +291,7 @@ end
 backup.set_start_folder(by_title_query: title)
 
 #application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/, /application.illustrator/, /vnd.openxmlformats.officedocument.presentationml.presentation/]
+formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/, /application.illustrator/, /vnd.openxmlformats.officedocument.presentationml.presentation/, /vnd.jgraph.mxfile.realtime/, /application.rtf/, /text.css/, /application.xml/, /text.csv/]
+
 backup.run_backups(formats)
 
