@@ -1,13 +1,10 @@
 class TextStats
   attr_reader :term_list, :body
 
-  def initialize(body)
+  def initialize(body, opts={})
     @body = body
-  end
-
-  def parse(in_str, opts = {})
-    @body = in_str
     @term_list = self.word_array opts[:as_html]
+    @document_length = @term_list.size.to_f
   end
   
   def word_array(opts = {})
@@ -17,18 +14,27 @@ class TextStats
     @body.gsub(/[^'a-zA-Z]/, ' ').split(/\s+/).map(&:downcase).select { |w| !stop_words.include?(w) }
   end
 
-  def unigram_counts
-    unless @counts[:unigram]
-      @counts[:unigram] = {}
+  def all_stats(term_size = 1)
+    @counts[term_size] ||= unigram_counts
+
+    @tf[term_size] = @counts[term_size].keys.inject({}) do |memo, k|
+      memo[k] = @counts[term_size][k] / @document_length
+      memo
+    end
+  end
+
+  def counts(term_size = 1)
+    unless @counts[term_size]
+      @counts[term_size] = {}
       word_list.each do |word|
-        @counts[:unigram][word] ||= 0
-        @counts[:unigram][word] += 1
+        @counts[term_size][word] ||= 0
+        @counts[term_size][word] += 1
       end
     end
-    @counts[:unigram]
+    @counts[term_size]
   end
   
-  def top_grams(sort_by_function_name, opts = {})
+  def top_bigrams(sort_by_function_name, opts = {})
     @gram_counts = {}
     @bigram_counts = {}
 
