@@ -39,15 +39,6 @@ body = File.open(ARGV[0]).readlines.join('')
 list = words body
 counts_1 = compute_frequencies list
 
-sort_list = list.sort do |a, b|
-  counts_1[b] <=> counts_1[a]
-end
-
-sort_list.uniq[0..9].each do |word|
-  $stdout.write("#{word}, ") # #{counts[word]}"
-end
-puts
-
 def dot_product(a, b)
   common_keys = a.keys & b.keys
 
@@ -77,15 +68,32 @@ def magnitude(a)
   Math.sqrt(sqr_mag)
 end
 
-def dist(a, b)
+def cosine_sim(a, b)
   dot_product(a, b)/(magnitude(a) * magnitude(b))
 end
+
+$stdout.write("Document 1: ")
+sort_list = list.sort do |a, b|
+  counts_1[b] <=> counts_1[a]
+end
+sort_list.uniq[0..9].each do |word|
+  $stdout.write("#{word}, ")
+end
+puts
 
 body = File.open(ARGV[1]).readlines.join('')
 list = words body
 counts_2 = compute_frequencies list
+$stdout.write("Document 2: ")
+sort_list = list.sort do |a, b|
+  counts_2[b] <=> counts_2[a]
+end
+sort_list.uniq[0..9].each do |word|
+  $stdout.write("#{word}, ") 
+end
+puts
 
-puts "Similarity is #{dist(counts_1, counts_2)}"
+puts "Similarity is #{cosine_sim(counts_1, counts_2)}"
 
 sort_list = sorted_dot_product_counts(counts_1, counts_2)
 

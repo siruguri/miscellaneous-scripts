@@ -3,10 +3,28 @@ class TextStats
 
   def initialize(body, opts={})
     @body = body
-    @term_list = self.word_array opts[:as_html]
+    @term_list = self.word_array opts
     @document_length = @term_list.size.to_f
+    @tf = {}
+    @counts = {}
+  end
+
+  def terms(term_size=1)
+    unless @tf[term_size]
+      run_stats(term_size)
+    end
+
+    @tf[term_size].keys
   end
   
+  def tfs(term_size=1)
+    unless @tf[term_size]
+      run_stats(term_size)
+    end
+
+    @tf[term_size]
+  end
+
   def word_array(opts = {})
     if opts[:as_html]
       @body.gsub!(/<\/?[^>]+>/, ' ')
@@ -14,8 +32,8 @@ class TextStats
     @body.gsub(/[^'a-zA-Z]/, ' ').split(/\s+/).map(&:downcase).select { |w| !stop_words.include?(w) }
   end
 
-  def all_stats(term_size = 1)
-    @counts[term_size] ||= unigram_counts
+  def run_stats(term_size = 1)
+    @counts[term_size] ||= counts(term_size)
 
     @tf[term_size] = @counts[term_size].keys.inject({}) do |memo, k|
       memo[k] = @counts[term_size][k] / @document_length
@@ -26,7 +44,7 @@ class TextStats
   def counts(term_size = 1)
     unless @counts[term_size]
       @counts[term_size] = {}
-      word_list.each do |word|
+      @term_list.each do |word|
         @counts[term_size][word] ||= 0
         @counts[term_size][word] += 1
       end
@@ -34,6 +52,24 @@ class TextStats
     @counts[term_size]
   end
   
+  def cosine_sim(vec)
+    if magnitude == 0 or vec.magnitude == 0
+      a=1
+      byebug
+    end
+    dot_product(vec)/(magnitude * vec.magnitude)
+  end
+
+  def explanation(vec)
+    common_keys = self.terms & vec.terms
+    
+    (common_keys.map do |k|
+       [k, self.tfs[k] * vec.tfs[k]]
+     end).sort { |a, b| b[1] <=> a[1]}.slice(0..5).map do |t|
+      "#{t[0]}:#{(t[1]*100000000).to_i}"
+    end.join("\t")
+  end
+    
   def top_bigrams(sort_by_function_name, opts = {})
     @gram_counts = {}
     @bigram_counts = {}
@@ -78,6 +114,14 @@ class TextStats
     resp
   end
 
+  def magnitude(term_size=1)
+    sqr_mag = tfs.inject(0) do |memo, h|
+      memo += h[1] * h[1]
+    end
+
+    Math.sqrt(sqr_mag)
+  end
+
   private
   def raw_count_score(a, b)
     b[:count] <=> a[:count]
@@ -96,5 +140,14 @@ class TextStats
   def stop_words
     @stop_words ||=
       %w(a able it's about above abst accordance according accordingly across act actually added adj affected affecting affects after afterwards again against ah all almost alone along already also although always am among amongst an and announce another any anybody anyhow anymore anyone anything anyway anyways anywhere apparently approximately are aren arent arise around as aside ask asking at auth available away awfully b back be became because become becomes becoming been before beforehand begin beginning beginnings begins behind being believe below beside besides between beyond biol both brief briefly but by c ca came can cannot can't cause causes certain certainly co com come comes contain containing contains could couldnt d date did didn't different do does doesn't doing done don't down downwards due during e each ed edu effect eg eight eighty either else elsewhere end ending enough especially et et-al etc even ever every everybody everyone everything everywhere ex except f far few ff fifth first five fix followed following follows for former formerly forth found four from further furthermore g gave get gets getting give given gives giving go goes gone got gotten h had happens hardly has hasn't have haven't having he hed hence her here hereafter hereby herein heres hereupon hers herself hes hi hid him himself his hither home how howbeit however hundred i id ie if i'll im immediate immediately importance important in inc indeed index information instead into invention inward is isn't it itd it'll its itself i've j just k keep keeps kept kg km know known knows l largely last lately later latter latterly least less lest let lets like liked likely line little ll look looking looks ltd m made mainly make makes many may maybe me mean means meantime meanwhile merely mg might million miss ml more moreover most mostly mr mrs much mug must my myself n na name namely nay nd near nearly necessarily necessary need needs neither never nevertheless new next nine ninety no nobody non none nonetheless noone nor normally nos not noted nothing now nowhere o obtain obtained obviously of off often oh ok okay old omitted on once one ones only onto or ord other others otherwise ought our ours ourselves out outside over overall owing own p page pages part particular particularly past per perhaps placed please plus poorly possible possibly potentially pp predominantly present previously primarily probably promptly proud provides put q que quickly quite qv r ran rather rd re readily really recent recently ref refs regarding regardless regards related relatively research respectively resulted resulting results right run s said same saw say saying says sec section see seeing seem seemed seeming seems seen self selves sent seven several shall she shed she'll shes should shouldn't show showed shown showns shows significant significantly similar similarly since six slightly so some somebody somehow someone somethan something sometime sometimes somewhat somewhere soon sorry specifically specified specify specifying still stop strongly sub substantially successfully such sufficiently suggest sup sure than that that's the their theirs them themselves then there there's these they they'd they'll they're they've this those through to too under until up very was wasn't we we'd we'll we're we've were weren't what what's when when's where where's which while who who's whom why why's with won't would wouldn't x you you'd you'll you're you've your yours yourself yourselves)
+  end
+
+  def dot_product(vec)
+    common_keys = self.terms & vec.terms
+    
+    dot_product = common_keys.inject(0) do |memo, k|
+      memo += self.tfs[k] * vec.tfs[k]
+      memo
+    end
   end
 end
