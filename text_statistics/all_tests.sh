@@ -1,0 +1,12 @@
+ruby doc_categorize.rb testing/science-1.txt
+ruby doc_categorize.rb testing/science-2.txt
+ruby doc_categorize.rb testing/science-3.txt
+ruby doc_categorize.rb testing/science-4.txt
+ruby doc_categorize.rb testing/sports-1.txt
+ruby doc_categorize.rb testing/sports-2.txt
+ruby doc_categorize.rb testing/sports-3.txt
+ruby doc_categorize.rb testing/sports-4.txt
+ruby doc_categorize.rb testing/overlap-1.txt
+ruby doc_categorize.rb testing/overlap-2.txt
+ruby doc_categorize.rb testing/overlap-3.txt
+ruby doc_categorize.rb testing/overlap-4.txt
