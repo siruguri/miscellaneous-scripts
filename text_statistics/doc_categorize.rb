@@ -1,4 +1,3 @@
-require 'byebug'
 require './text_stats'
 
 f = Dir.glob(File.join('inputs', 'training', '*'))
