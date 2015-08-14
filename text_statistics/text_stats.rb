@@ -30,7 +30,7 @@ module TextStats
       if opts[:as_html]
         @body.gsub!(/<\/?[^>]+>/, ' ')
       end
-      @body.gsub(/[^'a-zA-Z]/, ' ').split(/\s+/).map(&:downcase).select { |w| !stop_words.include?(w) }
+      @body.gsub(/[^'a-zA-Z0-9]/, ' ').split(/\s+/).map(&:downcase).select { |w| !stop_words.include?(w) }
     end
 
     def run_stats(term_size = 1)

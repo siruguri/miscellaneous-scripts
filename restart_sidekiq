@@ -1,0 +1,8 @@
+# Set these
+
+machine_ip=107.170.193.44
+sidekiq_queues='--queue stripe_interactions --queue sms_messages --queue mailers --queue invoices'
+code_location=/var/www/tollmaster
+#
+bundle exec sidekiqctl stop ${code_location}/shared/tmp/pids/sidekiq.pid 10 as www-data@${machine_ip}
+bundle exec sidekiq --index 0 --pidfile #{code_location}/shared/tmp/pids/sidekiq.pid --environment production --logfile ${code_location}/shared/log/sidekiq.log ${sidekiq_queues} --daemon as www-data@${machine_ip}

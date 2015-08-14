@@ -25,7 +25,7 @@ class GoogleBackup
       'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'ppt',
       'application/rtf' => 'rtf',
       'text/css' => 'css', 'text/csv' => 'csv',
-      'application/xml' => 'xml',
+      'application/xml' => 'xml', 'application/json' => 'json'
     }
 
     @exclusions = [/3gpp/, /\.realtime/, /mp4/, /quicktime/, /mpeg/, /wmv/]
@@ -172,7 +172,7 @@ class GoogleBackup
         # that we can ignore them. If you want to handle a new format,
         # do 2 things: 1. Put it in the formats array at the end of
         # the script, and add a conversion in the GoogleBackup class
-        # initializer above
+        # initializer above at line 20
 
         download_links = []
         formats.each do |fmt|
@@ -184,6 +184,7 @@ class GoogleBackup
         end
 
         # Exits if no format was known
+        # Clue: go to 294, and 20 (instructions in 172)
         if download_links.empty? and !excluded(link_pairs.keys[0])
           raise GoogleBackup::NoKnownFormat, "Couldn't find a known format in the list for #{link_pairs.keys}}"
         end
@@ -291,7 +292,7 @@ end
 backup.set_start_folder(by_title_query: title)
 
 #application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/, /application.illustrator/, /vnd.openxmlformats.officedocument.presentationml.presentation/, /vnd.jgraph.mxfile.realtime/, /application.rtf/, /text.css/, /application.xml/, /text.csv/]
+formats=[/office.*sheet/, /officedocument.wordprocessingml/, 'ppt', /text.plain/, /pdf/, /text.*tab.*values/, /msword/, /opendocument.text/, /application.illustrator/, /vnd.openxmlformats.officedocument.presentationml.presentation/, /vnd.jgraph.mxfile.realtime/, /application.rtf/, /text.css/, /application.xml/, /text.csv/, /application.json/]
 
 backup.run_backups(formats)
 

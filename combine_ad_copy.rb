@@ -3,7 +3,7 @@
 # Give a directory that has numbered files (starting with the format \d+_) for each set of words
 
 require 'my_utilities'
-require 'pry-debugger'
+require 'pry'
 
 class Combiner
   @level = MyUtilities::Logger::FATAL
@@ -57,7 +57,7 @@ class Combiner
       next if /^\s*$/.match word1
       b.each do |word2|
         next if /^\s*$/.match word2
-        ret_array << word1 + ' ' + word2
+        ret_array << word1.downcase + ' ' + word2.downcase
       end
     end
 
@@ -109,7 +109,7 @@ seqs = [ [1,3,4,5], [2,3,4], [3,4,5], [1,3,5]]
 # seqs = [ [1,2] ]
 
 if ARGV.size < 1 or !Dir.exists? ARGV[0]
-  MyUtilities.error_exit("Supply a directory with files as first arg, and a filename containing sequences")
+  MyUtilities.error_exit("Supply a directory with files as first arg, and 2nd arg is either a filename containing sequences or a list of seqs each as a quoted string")
 end
 
 if ARGV.size < 2

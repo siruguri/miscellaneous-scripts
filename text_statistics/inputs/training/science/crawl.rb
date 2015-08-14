@@ -1,19 +1,23 @@
-require 'watir-webdriver'
 require 'headless'
+require 'watir-webdriver'
+require 'byebug'
 
 headless = Headless.new
 headless.start
 
+
 filename = File.join("nytouts", ARGV[1])
 out_h = File.open filename, 'w'
 
-b = Watir::Browser.new :phantomjs
-b.goto ARGV[0]
+driver = Watir::Browser.new
+
+driver.goto ARGV[0]
+#byebug
 
 begin
-  try_text = b.article(class: 'post').text
+  try_text = driver.article(class: 'post').text
 rescue Watir::Exception::UnknownObjectException => e
-  all_ps = b.ps(class: 'story-body-text')
+  all_ps = driver.ps(class: 'story-body-text')
   try_text = ''
   all_ps.each { |elt| try_text += elt.text; try_text += "\n" }
 end

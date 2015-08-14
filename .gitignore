@@ -17,4 +17,7 @@ bin/
 outputs/
 *txt
 */passwords.txt
-inputs/
+!inputs/
+.DS_Store
+*.xml
+*.txt
