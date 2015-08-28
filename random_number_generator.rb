@@ -24,19 +24,20 @@ opts.each do |opt, arg|
   end
 end
 
-case type
-  when 'alphanum'
-  char_array = (?A..?Z).to_a + (?0..?9).to_a + (?a..?z).to_a 
+force_special = false
+char_array = (?A..?Z).to_a + (?0..?9).to_a + (?a..?z).to_a 
 
+case type
   when 'hex'
-  char_array = (?a..?f).to_a + (?0..?9).to_a
+    char_array = (?a..?f).to_a + (?0..?9).to_a
+
+  when 'force-special'
+    force_special = true
+
 end
 
-if ARGV and ARGV[1]
-  if ARGV[1] == 'punc'
-    char_array = char_array | ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')']
-
-  end
+if force_special
+  char_array = char_array + ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')']
 end
 
 api_string = length.times.inject("") {|s, i| s << char_array[rand(char_array.length)]}
