@@ -1,4 +1,6 @@
 # coding: utf-8
+
+require 'yaml'
 require 'watir-webdriver'
 require 'headless'
 require 'nokogiri'
@@ -25,11 +27,26 @@ def stop_words
 end
 
 def get_xml(url)
+  err "Getting XML feed for #{url}"
   str = Net::HTTP.get URI(url)
   dom = Nokogiri::XML.parse str
 end
 
-xml_descriptions = get_xml 'http://rss.nytimes.com/services/xml/rss/nyt/AsiaPacific.xml'
+if File.exists? 'config.yml'
+  config = YAML.load_file 'config.yml'
+else
+  config = nil
+end
+
+def get_config(cfg, key, default)
+  if cfg and (cfg[key.to_s] or cfg[key])
+    cfg[key] || cfg[key.to_s]
+  else
+    default
+  end
+end
+    
+xml_descriptions = get_xml get_config(config, :rss_xml, 'http://rss.nytimes.com/services/xml/rss/nyt/AsiaPacific.xml')
 
 def extract_nyt_link(b, url)
   b.goto url

@@ -91,7 +91,11 @@ class Combiner
         key = match_grp[1].to_i
         ret_list[key]=[]
         
-        File.open(f).readlines.map {|word| word.chomp!; ret_list[key] << word}
+        File.open(f).readlines.map do |word|
+          word.chomp!
+          word.gsub! /[^a-zA-Z0-9]+/, ' '
+          ret_list[key] << word
+        end
       end
     end      
 
@@ -128,10 +132,33 @@ else
 end
 
 c=Combiner.new ARGV[0]
+slice_size = 19000
 
+# Break down the outputs into individual files for upload
 all_seqs.each do |seqs|
   all_words = c.create_seqs [seqs]
-  puts (all_words.sort { |a, b| if a.size == b.size then ret= a<=>b else ret= a.size <=> b.size end; ret}).reject { |x| x.size > 60}
+  iterations = all_words.size / slice_size
+
+  (0..iterations).each do |iter_index|
+    slice_end = [all_words.size, slice_size * (iter_index + 1)].min - 1
+    slice_beg = slice_size * iter_index
+    out_f = File.open File.join(ARGV[2], "#{iter_index}.kwds.tsv"), 'w'
+    out_f.puts "Keyword state	Keyword	Match type	Campaign	Ad group	Status	Keyword max CPC	Ad group max CPC	Destination URL	Campaign type	Campaign subtype	Clicks	Impressions	CTR	Avg. CPC	Cost	Avg. position	Labels"
+    
+    all_words[slice_beg..slice_end].sort do |a, b|
+      if a.size == b.size
+        a<=>b
+      else
+        ret= a.size <=> b.size
+      end
+    end.each do |x|
+      unless x.size > 60
+        out_f.puts "enabled	#{x}	Broad	Citiz Audit	Trial Ad Group 2.#{iter_index}	campaign paused	0.60	0.10		Search Only	Standard	0	0	0.00%	0.00	0.00	0.0	 --"
+      end
+    end
+
+    out_f.close
+  end
 end
 
 #puts all_words
