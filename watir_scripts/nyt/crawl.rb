@@ -7,57 +7,55 @@ require 'nokogiri'
 require 'pry'
 require 'net/http'
 
+require_relative '../../database_connector.rb'
+
+
 class NytCrawler
-  def initialize
+  def initialize(db_c, cfg=nil)
+
+    @_conn = db_c
     @try_text = ''
     @fetched_counter = 0
     @headless = Headless.new
     @headless.start
-
-    if File.exists? 'config.yml'
-      @config = YAML.load_file 'config.yml'
-    end
+    @config = cfg
   end
   
   def run_crawler
     # Hard codes structure of NYT's feed's atom (which should be about the same as any other RSS format)
-    start = false
+    start = true
     b = nil
     xml_descriptions = get_xml_dom
 
-    xml_descriptions.children[1].children[0].children.each do |item|
-      if item.name == 'item'
-        item.children.each do |story_properties|
-          if story_properties.name != 'title'
-            next
-          end
-          puts story_properties.children[0].text
-          if !start and /yang.on/i.match(story_properties.children[0].text)
-            start=true
-          end
-
-          if !start
-            next
-          end
-          unless @b
-            @b = Watir::Browser.new #:phantomjs
-            @fetched_counter = 0
-          end
-          
-          query = (story_properties.children[0].text.downcase.split(/\s+/).uniq - stop_words)[0..3].join('+')
-
-          produce_file query
-          sleep 5
-        end
+    xml_descriptions.children[1].children[0].children.select do |item|
+      item.name == 'item'
+    end.each do |story_item|
+      story_item.children.select do |i|
+        i.name == 'title'
+      end.each do |story_title|
+        err story_title.text
+        get_browser
+        query = (story_title.text.downcase.split(/\s+/).uniq - stop_words)[0..3].join('+')
+        
+        produce_file query
+        sleep 5
       end
     end
 
-    if @b
-      @b.close
+    if @browser
+      @browser.close
     end
   end
   
   private
+  def get_browser
+    if @config['environment'] == 'test'
+      @browser = nil
+    else
+      @browser ||= Watir::Browser.new #:phantomjs
+    end
+  end
+      
   def err(m)
     $stderr.write m+"\n"
   end
@@ -93,52 +91,64 @@ class NytCrawler
   end
   
   def extract_nyt_link(url)
-    @b.goto url
+    if @browser
+      begin
+        @browser.goto url
 
-    err 'Looking for News Answer'
-    begin
-      phantom_links = @b.div(css: '._yE').as.select { |l| /http...www.nytimes.com/.match(l.attribute_value('href')) }
-
-      if phantom_links.size > 0 
-        return phantom_links[0]
-      else
-        raise Watir::Exception::UnknownObjectException
+        err 'Looking for News Answer'
+        phantom_links = @browser.div(css: '._yE').as.select { |l| /http...www.nytimes.com/.match(l.attribute_value('href')) }
+        if phantom_links.size > 0 
+          return phantom_links[0]
+        else
+          raise Watir::Exception::UnknownObjectException
+        end
+      rescue Watir::Exception::UnknownObjectException => e
+        err 'Not found. Looking in organic results'
+        link = @browser.divs(:css => ".srg .g")[0].as[0]
+      rescue Errno::ECONNREFUSED => e
+        err 'Connection refused... did the screen close?'
+        nil
       end
-    rescue Watir::Exception::UnknownObjectException => e
-      err 'Not found. Looking in organic results'
-      link = @b.divs(:css => ".srg .g")[0].as[0]
+    else # in test env
+      nil
     end
-  end
-
-  def get_target_dir
-    @target_dir ||= (
-      t = Date.today
-      File.join('nytouts', sprintf("%04d-%02d-%02d", t.year, t.month, t.day))
-    )
   end
 
   def get_nyt_content(link)
-    target_dir = get_target_dir
-    
-    link.click
-    all_ps = @b.ps
-      
-    all_ps.each_with_index do |elt, idx|
-      begin
-        err "#{idx}: #{elt.text[0..120]}"
-        @try_text += elt.text
-        @try_text += "\n<p>"
-      rescue Selenium::WebDriver::Error::StaleElementReferenceError, Watir::Exception::UnknownObjectException => f
-        err "No text element in paragraph or driver ran out of steam."
-      end
-    end
+    if link
+      link.click
+      sleep 5
 
+      all_ps = @browser.ps
+
+      ctr = 0
+      all_ps.each_with_index do |elt, idx|
+        begin
+          @try_text += elt.text
+          @try_text += "\n<p>"
+          ctr = idx
+        rescue Watir::Exception::UnknownObjectException => f
+          err "No text element in paragraph"
+        rescue Selenium::WebDriver::Error::StaleElementReferenceError => f
+          err "Driver ran out of steam."
+        end
+      end
+
+      err "Tried to print #{ctr} lines from article"
+    else # in test env
+      @try_text = 'all some awesome content in some awesome article'
+    end
+    
     @try_text
   end
 
   def href_to_filename(link)
     #"http://sinosphere.blogs.nytimes.com/2015/07/06/q-a-xie-shi-on-the-brotherhood-of-skateboarding-in-chinas-far-west/"
 
+    if !link
+      return 'nil test filename'
+    end
+    
     href = link.attribute_value 'href'
     href.chomp!('/')
     
@@ -155,39 +165,63 @@ class NytCrawler
     filename
   end  
 
-  def produce_file(q)
-    target_dir = get_target_dir
-    unless Dir.exists? target_dir
-      Dir.mkdir target_dir
-    end
+
+  def db_execute(q)
+    @_conn.execute q
+  end
+  
+  def add_to_db(title, body, date)
+    title = db_safe title
+    body = db_safe body
+    db_execute("insert into articles (title, body, crawled_date) values ('#{title}', '#{body}', '#{date}')")
+  end
     
+  def produce_file(q)
+    # Get link from Google
+    # Download link if it's not in DB
     err "Getting NYT link from Google search page via query nyt+#{q}"
     link = extract_nyt_link "https://www.google.com/search?q=nyt+#{q}"
 
-    outfile = target_dir + "/" + href_to_filename(link)
+    outfile = db_safe(href_to_filename(link))
     err "Writing to #{outfile}"
 
-    unless File.exists? outfile
-      fh = File.open outfile, 'w'
+    t = Date.today
+    unless db_execute("select count(*) from articles where title='#{outfile}' and crawled_date='#{t}'")[0][0] > 0
       begin
         content = get_nyt_content link
-        fh.write content
-        fh.close
       # My Internet connection sucks!
       rescue Net::ReadTimeout => e
         err "Timed out. Moving on."
+      else
+
+        add_to_db(outfile, content, t)
       ensure
         @fetched_counter += 1
         if @fetched_counter == 10
-          @b.close
           @fetched_counter = 0
-          @b = Watir::Browser.new
+          @browser.close if @browser
+          get_browser
         end
       end        
     else
       err "Skipping. File exists"
     end
   end
+
+  def db_safe(str)
+    str if !(str.is_a? String)
+    # Learned about this from http://stackoverflow.com/questions/1542214/weird-backslash-substitution-in-ruby
+    # str.gsub /'/, '\\\\\''
+    str.gsub /'/, " replaced_quoted_string_blech "
+  end
 end
 
-NytCrawler.new.run_crawler
+if File.exists? 'config.yml'
+  config = YAML.load_file 'config.yml'
+end
+
+db_c = DatabaseConnector.new(config['db_file'] || 'db.sqlite')
+db_c.create_table 'articles', 'id integer primary key, title text, body text, crawled_date datetime'
+db_c.create_table 'categories', 'id integer primary key, article_id integer, name string'
+
+NytCrawler.new(db_c, config).run_crawler

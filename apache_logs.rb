@@ -3,7 +3,18 @@ require 'pry-byebug'
 require 'zlib'
 
 class ApacheLogs
+  class UnknownMethodException < Exception
+  end
+  
+  def self.allowed_methods
+    [:four_04s]
+  end
+  def self.method_allowed?(m)
+    allowed_methods.include?(m) or allowed_methods.include?(m.to_sym)
+  end
+  
   def initialize
+    # www.offtherailsapps.com:80 180.76.15.137 - - [04/Jul/2015:03:16:30 -0700] "GET / HTTP/1.1" 403 366 "-" "Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)"
     format = '%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"'
     @parser = ApacheLogRegex.new(format)
     @lines = []
@@ -14,8 +25,8 @@ class ApacheLogs
   end
 
   def run(method, entries)
-    if !self.respond_to? method
-      return nil
+    if !ApacheLogs.method_allowed?(method)
+      raise UnknownMethodException.new(method)
     end
 
     if File.ftype(entries) == 'file'
@@ -37,6 +48,11 @@ class ApacheLogs
 
   def four_04s
     @lines.each do |l|
+      leading_host_regex = /^[^\s]*\.com(:\d+)? /
+      if leading_host_regex.match l
+        l.gsub! leading_host_regex, ''
+      end
+      
       fields = apache_fields l
       if fields.nil?
         $stderr.write("Parser failed on #{l}\n")
@@ -110,8 +126,12 @@ class ApacheLogs
 end
 
 if ARGV.size > 1
-  ApacheLogs.new.run ARGV[0], ARGV[1]
+  begin
+    ApacheLogs.new.run ARGV[0], ARGV[1]
+  rescue ApacheLogs::UnknownMethodException => e
+    $stderr.puts("That method is not known.")
+  end
 else
-  $stderr.write("Please enter at least two cmd line args.\n")
+  $stderr.write("Please enter at least two cmd line args: the method of analysis (from #{ApacheLogs.allowed_methods}); and the log file or a directory containing them (can be gzipped).\n")
   exit -1
 end  
