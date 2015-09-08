@@ -199,7 +199,11 @@ class NytCrawler
         @fetched_counter += 1
         if @fetched_counter == 10
           @fetched_counter = 0
-          @browser.close if @browser
+          if @browser
+            @browser.close
+            @browser=nil
+          end
+          
           get_browser
         end
       end        

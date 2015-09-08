@@ -4,6 +4,15 @@
 
 require 'my_utilities'
 require 'pry'
+require 'getoptlong'
+
+opts = GetoptLong.new(
+  [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
+  [ '--sequences-file', '-s', GetoptLong::REQUIRED_ARGUMENT],
+  [ '--kwd-dir', '-k', GetoptLong::REQUIRED_ARGUMENT],
+  [ '--ad-group-prefix', '-p', GetoptLong::REQUIRED_ARGUMENT],
+  [ '--output-directory', '-d', GetoptLong::REQUIRED_ARGUMENT]
+)
 
 class Combiner
   @level = MyUtilities::Logger::FATAL
@@ -13,8 +22,7 @@ class Combiner
     attr_accessor :logger, :level
   end
 
-  def initialize(dir)
-    entry_dir = ARGV[0]
+  def initialize(entry_dir)
     @file_list = (Dir.entries entry_dir).map { |f| File.join entry_dir, f}
     @logger = self.class.logger
   end
@@ -107,31 +115,52 @@ class Combiner
   end
 end
 
-# Specify the combination sequences
+kwd_dir = sequences_file = nil
+output_dir = '.'
+ad_grp_prefix = 'trial ads'
 
-seqs = [ [1,3,4,5], [2,3,4], [3,4,5], [1,3,5]]
-# seqs = [ [1,2] ]
+opts.each do |opt, arg|
+  case opt
+  when '--help'
+    MyUtilities.error_exit("Supply a directory with files as first arg, and 2nd arg is either a filename containing sequences or a list of seqs each as a quoted string")
 
-if ARGV.size < 1 or !Dir.exists? ARGV[0]
+  when '--kwd-dir'
+    kwd_dir = arg
+    
+  when '--sequences-file'
+    sequences_file = arg
+
+  when '--ad-group-prefix'
+    ad_grp_prefix = arg
+
+  when '--output-directory'
+    if !Dir.exists? arg
+      MyUtilities.error_exit "Option to -d/--output-directory is not a directory"
+    end
+    output_dir = arg
+  end
+end
+
+if kwd_dir.nil? or (sequences_file.nil? && ARGV.length == 0) or
+  (sequences_file.is_a? String and (!File.exists? sequences_file))
   MyUtilities.error_exit("Supply a directory with files as first arg, and 2nd arg is either a filename containing sequences or a list of seqs each as a quoted string")
 end
 
-if ARGV.size < 2
-  MyUtilities.error_exit("Need at least one sequence number or a filename containing them")
+if sequences_file.nil?
+  sequences_file = ARGV[0..-1]
 end
 
-if File.exists? ARGV[1]
+if sequences_file.is_a? String
   all_seqs=[]
   # Expect each line to be single space separated numbers
-  open(ARGV[1]).readlines.map do |line|
+  open(sequences_file).readlines.map do |line|
     all_seqs.push(line.split(' '))
   end
 else
-  seqs=ARGV[1..-1]
-  all_seqs=[seqs]
-end
+  all_seqs = [sequences_file]
+end  
 
-c=Combiner.new ARGV[0]
+c=Combiner.new kwd_dir
 slice_size = 19000
 
 # Break down the outputs into individual files for upload
@@ -142,7 +171,7 @@ all_seqs.each do |seqs|
   (0..iterations).each do |iter_index|
     slice_end = [all_words.size, slice_size * (iter_index + 1)].min - 1
     slice_beg = slice_size * iter_index
-    out_f = File.open File.join(ARGV[2], "#{iter_index}.kwds.tsv"), 'w'
+    out_f = File.open File.join(output_dir, "#{iter_index}.kwds.tsv"), 'w'
     out_f.puts "Keyword state	Keyword	Match type	Campaign	Ad group	Status	Keyword max CPC	Ad group max CPC	Destination URL	Campaign type	Campaign subtype	Clicks	Impressions	CTR	Avg. CPC	Cost	Avg. position	Labels"
     
     all_words[slice_beg..slice_end].sort do |a, b|
@@ -153,7 +182,7 @@ all_seqs.each do |seqs|
       end
     end.each do |x|
       unless x.size > 60
-        out_f.puts "enabled	#{x}	Broad	Citiz Audit	Trial Ad Group 2.#{iter_index}	campaign paused	0.60	0.10		Search Only	Standard	0	0	0.00%	0.00	0.00	0.0	 --"
+        out_f.puts "enabled	#{x}	Broad	Citiz Audit	#{ad_grp_prefix}.#{iter_index}	campaign paused	0.60	0.10		Search Only	Standard	0	0	0.00%	0.00	0.00	0.0	 --"
       end
     end
 
@@ -161,4 +190,4 @@ all_seqs.each do |seqs|
   end
 end
 
-#puts all_words
+
