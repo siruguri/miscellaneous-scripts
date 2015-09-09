@@ -1,0 +1,71 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    activemodel (4.2.4)
+      activesupport (= 4.2.4)
+      builder (~> 3.1)
+    activerecord (4.2.4)
+      activemodel (= 4.2.4)
+      activesupport (= 4.2.4)
+      arel (~> 6.0)
+    activesupport (4.2.4)
+      i18n (~> 0.7)
+      json (~> 1.7, >= 1.7.7)
+      minitest (~> 5.1)
+      thread_safe (~> 0.3, >= 0.3.4)
+      tzinfo (~> 1.1)
+    addressable (2.3.8)
+    arel (6.0.3)
+    builder (3.2.2)
+    childprocess (0.5.6)
+      ffi (~> 1.0, >= 1.0.11)
+    coderay (1.1.0)
+    crack (0.4.2)
+      safe_yaml (~> 1.0.0)
+    ffi (1.9.10)
+    headless (2.2.0)
+    i18n (0.7.0)
+    json (1.8.3)
+    method_source (0.8.2)
+    mini_portile (0.6.2)
+    minitest (5.8.0)
+    multi_json (1.11.2)
+    net (0.3.3)
+      activesupport
+    nokogiri (1.6.6.2)
+      mini_portile (~> 0.6.0)
+    pry (0.10.1)
+      coderay (~> 1.1.0)
+      method_source (~> 0.8.1)
+      slop (~> 3.4)
+    rubyzip (1.1.7)
+    safe_yaml (1.0.4)
+    selenium-webdriver (2.47.1)
+      childprocess (~> 0.5)
+      multi_json (~> 1.0)
+      rubyzip (~> 1.0)
+      websocket (~> 1.0)
+    slop (3.6.0)
+    sqlite3 (1.3.10)
+    thread_safe (0.3.5)
+    tzinfo (1.2.2)
+      thread_safe (~> 0.1)
+    watir-webdriver (0.8.0)
+      selenium-webdriver (>= 2.46.2)
+    webmock (1.21.0)
+      addressable (>= 2.3.6)
+      crack (>= 0.3.2)
+    websocket (1.2.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  activerecord
+  headless
+  net
+  nokogiri
+  pry
+  sqlite3
+  watir-webdriver
+  webmock

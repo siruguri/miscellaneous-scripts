@@ -1,19 +1,52 @@
-# coding: utf-8
+require 'rubygems'
+require 'bundler/setup'
+Bundler.require(:default)
 
-require 'yaml'
-require 'watir-webdriver'
-require 'headless'
-require 'nokogiri'
-require 'pry'
-require 'net/http'
+require_relative '../../ar_database_connector.rb'
 
-require_relative '../../database_connector.rb'
+Dir.glob('models/*.rb').each do |f|
+  require_relative f
+end
 
+class MockBrowser
+  extend Forwardable
+  
+  class MockBrowserMappingException < Exception
+  end
+  
+  def initialize(map=nil)
+    @filemaps = map
+    @browser = Watir::Browser.new :chrome
+  end
+
+  def goto(url)
+    _f = filemaps url
+    @browser.goto _f
+  end
+
+  def_delegators :@browser, :div, :divs, :ps, :as, :close
+    
+  private
+  
+  def filemaps(url)
+    prefix = Dir.pwd
+    if @filemaps.nil?
+      if /.xml$/.match url
+        return "file://#{File.join(Dir.pwd, 'test.xml')}"
+      else
+        return "file://#{File.join(Dir.pwd, 'test.html')}"
+      end
+    else
+      if @filemaps[url]
+        return "file://#{File.join(Dir.pwd, @filemaps[url])}"
+      end
+    end
+    raise MockBrowserMappingException.new("#{url}")
+  end
+end
 
 class NytCrawler
-  def initialize(db_c, cfg=nil)
-
-    @_conn = db_c
+  def initialize(cfg=nil)
     @try_text = ''
     @fetched_counter = 0
     @headless = Headless.new
@@ -30,16 +63,21 @@ class NytCrawler
     xml_descriptions.children[1].children[0].children.select do |item|
       item.name == 'item'
     end.each do |story_item|
-      story_item.children.select do |i|
-        i.name == 'title'
-      end.each do |story_title|
-        err story_title.text
-        get_browser
-        query = (story_title.text.downcase.split(/\s+/).uniq - stop_words)[0..3].join('+')
-        
-        produce_file query
-        sleep 5
+      categories = []
+      title = ''
+      story_item.children.each do |i|
+        if i.name == 'title'
+          title = i
+        elsif i.name == 'category'
+          categories << i.text
+        end
       end
+      
+      err "#{title.text} #{categories}"
+      
+      get_browser
+      produce_file title, categories
+      sleep 5
     end
 
     if @browser
@@ -48,11 +86,20 @@ class NytCrawler
   end
   
   private
-  def get_browser
-    if @config['environment'] == 'test'
-      @browser = nil
+  def nytimes_regex
+    if @config['environment'] == 'production'
+      /http...www.nytimes.com/
     else
-      @browser ||= Watir::Browser.new #:phantomjs
+      /users\/.*\/nyt\//
+    end
+  end
+  
+  def get_browser
+    if @config['environment'] == 'production'
+      @browser ||= Watir::Browser.new :chrome
+    else
+      a = 1/0
+      @browser = MockBrowser.new
     end
   end
       
@@ -96,7 +143,7 @@ class NytCrawler
         @browser.goto url
 
         err 'Looking for News Answer'
-        phantom_links = @browser.div(css: '._yE').as.select { |l| /http...www.nytimes.com/.match(l.attribute_value('href')) }
+        phantom_links = @browser.div(css: '._yE').as.select { |l| nytimes_regex.match(l.attribute_value('href')) }
         if phantom_links.size > 0 
           return phantom_links[0]
         else
@@ -143,8 +190,6 @@ class NytCrawler
   end
 
   def href_to_filename(link)
-    #"http://sinosphere.blogs.nytimes.com/2015/07/06/q-a-xie-shi-on-the-brotherhood-of-skateboarding-in-chinas-far-west/"
-
     if !link
       return 'nil test filename'
     end
@@ -166,35 +211,59 @@ class NytCrawler
   end  
 
 
-  def db_execute(q)
-    @_conn.execute q
+  def add_to_db(title, body, date)
+    Article.create title: title, body: body, crawled_date: date 
+    retrieve_article title, date
+  end
+
+  def add_article_category!(article, c)
+    c = Category.find_or_create_by category_name: c
+    article = article[0]
+    
+    unless Categorization.where(article: article, category: c).count > 0
+      Categorization.create article: article, category: c
+    end
   end
   
-  def add_to_db(title, body, date)
-    title = db_safe title
-    body = db_safe body
-    db_execute("insert into articles (title, body, crawled_date) values ('#{title}', '#{body}', '#{date}')")
+  def add_article_categories(article, categories)
+    categories.each do |c|
+      add_article_category! article, c
+    end
+  end
+  
+  def retrieve_article(title, date)
+    Article.where title: title, crawled_date: date
+  end
+  
+  def pre_process_title(t)
+    tp = t
+    tp = tp.gsub(/(sinosphere blog)|(world briefing): /i, '')
+    tp = (tp.text.downcase.split(/\s+/).uniq - stop_words)[0..3].join('+')
+    tp
   end
     
-  def produce_file(q)
+  def produce_file(title, category_list = nil)
     # Get link from Google
     # Download link if it's not in DB
+    q = pre_process_title title
+    
     err "Getting NYT link from Google search page via query nyt+#{q}"
     link = extract_nyt_link "https://www.google.com/search?q=nyt+#{q}"
 
-    outfile = db_safe(href_to_filename(link))
+    outfile = href_to_filename link
     err "Writing to #{outfile}"
 
     t = Date.today
-    unless db_execute("select count(*) from articles where title='#{outfile}' and crawled_date='#{t}'")[0][0] > 0
+    article = Article.where(title: outfile, crawled_date: t)
+    if article.count == 0
+      # Article should be inserted
       begin
         content = get_nyt_content link
       # My Internet connection sucks!
       rescue Net::ReadTimeout => e
         err "Timed out. Moving on."
       else
-
-        add_to_db(outfile, content, t)
+        article = add_to_db(outfile, content, t)
       ensure
         @fetched_counter += 1
         if @fetched_counter == 10
@@ -206,26 +275,27 @@ class NytCrawler
           
           get_browser
         end
-      end        
+      end
     else
-      err "Skipping. File exists"
+      err "File exists - not re-crawling"
+      add_article_categories article, category_list
     end
   end
-
-  def db_safe(str)
-    str if !(str.is_a? String)
-    # Learned about this from http://stackoverflow.com/questions/1542214/weird-backslash-substitution-in-ruby
-    # str.gsub /'/, '\\\\\''
-    str.gsub /'/, " replaced_quoted_string_blech "
-  end
 end
 
-if File.exists? 'config.yml'
-  config = YAML.load_file 'config.yml'
+if File.exists? 'config/app.yml'
+  config = YAML.load_file 'config/app.yml'
 end
 
-db_c = DatabaseConnector.new(config['db_file'] || 'db.sqlite')
-db_c.create_table 'articles', 'id integer primary key, title text, body text, crawled_date datetime'
-db_c.create_table 'categories', 'id integer primary key, article_id integer, name string'
+WebMock.disable!
+if config['environment'] == 'test'
+  WebMock.disable_net_connect!(:allow_localhost => true)
+  WebMock.stub_request(:get, "http://rss.nytimes.com/services/xml/rss/nyt/World.xml").
+    with(:headers => {'Accept'=>'*/*', 'Accept-Encoding'=>'gzip;q=1.0,deflate;q=0.6,identity;q=0.3', 'Host'=>'rss.nytimes.com', 'User-Agent'=>'Ruby'}).
+    to_return(:status => 200, :body => File.open('test.xml').readlines.join("\n"))
+end
 
-NytCrawler.new(db_c, config).run_crawler
+db_c = ArDatabaseConnector.new 'config/database.yml'
+db_c.run_migrations 'migrations'
+#binding.pry
+NytCrawler.new(config).run_crawler

@@ -23,3 +23,6 @@ outputs/
 *.txt
 nytouts/
 *sqlite
+test*.html
+log/
+config/

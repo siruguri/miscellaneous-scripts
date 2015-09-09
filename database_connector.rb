@@ -5,8 +5,8 @@ class DatabaseConnector
     @_conn = SQLite3::Database.new filename
   end
 
-  def query(q)
-    @_conn.execute q
+  def query(q, arr)
+    @_conn.execute q, arr
   end
   alias :execute :query
   

@@ -1,3 +1,0 @@
-#rss_xml: http://rss.nytimes.com/services/xml/rss/nyt/Economy.xml
-rss_xml: http://rss.nytimes.com/services/xml/rss/nyt/World.xml
-environment: production
