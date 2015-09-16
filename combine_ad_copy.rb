@@ -119,10 +119,14 @@ kwd_dir = sequences_file = nil
 output_dir = '.'
 ad_grp_prefix = 'trial ads'
 
+def help
+  MyUtilities.error_exit("Supply a directory with files with --kwd-dir/-k; a filename containing sequences or a list of seqs each as a quoted string with --sequences-file/-s; the ad group prefix optionally with --ad-group-prefix/-p; the output directory with --output-directory/-d")
+end
+
 opts.each do |opt, arg|
   case opt
   when '--help'
-    MyUtilities.error_exit("Supply a directory with files as first arg, and 2nd arg is either a filename containing sequences or a list of seqs each as a quoted string")
+    help
 
   when '--kwd-dir'
     kwd_dir = arg
@@ -143,7 +147,7 @@ end
 
 if kwd_dir.nil? or (sequences_file.nil? && ARGV.length == 0) or
   (sequences_file.is_a? String and (!File.exists? sequences_file))
-  MyUtilities.error_exit("Supply a directory with files as first arg, and 2nd arg is either a filename containing sequences or a list of seqs each as a quoted string")
+  help
 end
 
 if sequences_file.nil?

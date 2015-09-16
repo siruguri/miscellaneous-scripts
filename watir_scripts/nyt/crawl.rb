@@ -88,7 +88,7 @@ class NytCrawler
   private
   def nytimes_regex
     if @config['environment'] == 'production'
-      /http...www.nytimes.com/
+      /(http.?:\/\/.*\w+\.nytimes\.com)|(url=http.3A.2F.2F.*.\w+\.nytimes\.com.2F)/
     else
       /users\/.*\/nyt\//
     end
@@ -143,7 +143,12 @@ class NytCrawler
         @browser.goto url
 
         err 'Looking for News Answer'
-        phantom_links = @browser.div(css: '._yE').as.select { |l| nytimes_regex.match(l.attribute_value('href')) }
+        phantom_links = @browser.div(css: '._yE').as.select do |l|
+          err "Looking at href = #{l.attribute_value('href')}"
+          nytimes_regex.match(l.attribute_value('data-href')) or
+            nytimes_regex.match(l.attribute_value('href'))
+        end
+        
         if phantom_links.size > 0 
           return phantom_links[0]
         else
@@ -163,22 +168,26 @@ class NytCrawler
 
   def get_nyt_content(link)
     if link
-      link.click
-      sleep 5
-
-      all_ps = @browser.ps
-
       ctr = 0
-      all_ps.each_with_index do |elt, idx|
-        begin
-          @try_text += elt.text
-          @try_text += "\n<p>"
-          ctr = idx
-        rescue Watir::Exception::UnknownObjectException => f
-          err "No text element in paragraph"
-        rescue Selenium::WebDriver::Error::StaleElementReferenceError => f
-          err "Driver ran out of steam."
+      begin
+        link.click
+        sleep 5
+
+        all_ps = @browser.ps
+        all_ps.each_with_index do |elt, idx|
+          begin
+            @try_text += elt.text
+            @try_text += "\n<p>"
+            ctr = idx
+          rescue Watir::Exception::UnknownObjectException => f
+            err "No text element in paragraph"
+          rescue Selenium::WebDriver::Error::StaleElementReferenceError => f
+            err "Driver ran out of steam."
+          end
         end
+      rescue Selenium::WebDriver::Error::UnknownError
+        # Probably the link is just below-the-fold
+        err "Probably the link is just below-the-fold"
       end
 
       err "Tried to print #{ctr} lines from article"
@@ -232,19 +241,21 @@ class NytCrawler
   end
   
   def retrieve_article(title, date)
-    Article.where title: title, crawled_date: date
+    Article.where title: title
   end
   
   def pre_process_title(t)
-    tp = t
-    tp = tp.gsub(/(sinosphere blog)|(world briefing): /i, '')
-    tp = (tp.text.downcase.split(/\s+/).uniq - stop_words)[0..3].join('+')
+    tp = (t.text.downcase.split(/\s+/) - stop_words).join ' '
+    tp = tp.gsub(/^(\w+ \w+: )/, '')
+    tp = tp.split(/\s+/).uniq[0..3].join('+')
+    tp = tp.gsub(/[\:\-\&\>\<\.\;\_]/, '+')
     tp
   end
     
   def produce_file(title, category_list = nil)
     # Get link from Google
     # Download link if it's not in DB
+    err "Initial title: #{title}"
     q = pre_process_title title
     
     err "Getting NYT link from Google search page via query nyt+#{q}"
@@ -254,7 +265,7 @@ class NytCrawler
     err "Writing to #{outfile}"
 
     t = Date.today
-    article = Article.where(title: outfile, crawled_date: t)
+    article = retrieve_article outfile, t
     if article.count == 0
       # Article should be inserted
       begin
