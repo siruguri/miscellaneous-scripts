@@ -19,6 +19,10 @@ class ArDatabaseConnector
         ActiveRecord::Migrator.migrate dirname, ENV['VERSION'] ? ENV['VERSION'].to_i : nil
       end
     end
+
+    def dump_schema(file_h)
+      ActiveRecord::SchemaDumper.dump(ActiveRecord::Base.connection, file_h)
+    end
   end
 end
 
