@@ -163,6 +163,7 @@ class NytCrawler
   end
 
   def get_nyt_content(link)
+    @try_text = ''
     if link
       ctr = 0
       begin
