@@ -2,56 +2,35 @@ require 'rubygems'
 require 'bundler/setup'
 Bundler.require(:default)
 
+Dotenv.load
+
 require_relative '../../ar_database_connector.rb'
 
 Dir.glob('models/*.rb').each do |f|
   require_relative f
 end
-
-class MockBrowser
-  extend Forwardable
-  
-  class MockBrowserMappingException < Exception
-  end
-  
-  def initialize(map=nil)
-    @filemaps = map
-    @browser = Watir::Browser.new :chrome
-  end
-
-  def goto(url)
-    _f = filemaps url
-    @browser.goto _f
-  end
-
-  def_delegators :@browser, :div, :divs, :ps, :as, :close
-    
-  private
-  
-  def filemaps(url)
-    prefix = Dir.pwd
-    if @filemaps.nil?
-      if /.xml$/.match url
-        return "file://#{File.join(Dir.pwd, 'test.xml')}"
-      else
-        return "file://#{File.join(Dir.pwd, 'test.html')}"
-      end
-    else
-      if @filemaps[url]
-        return "file://#{File.join(Dir.pwd, @filemaps[url])}"
-      end
-    end
-    raise MockBrowserMappingException.new("#{url}")
-  end
+Dir.glob('lib/*.rb').each do |f|
+  require_relative f
 end
 
 class NytCrawler
+  attr_reader :loop_count
+
   def initialize(cfg=nil)
     @try_text = ''
     @fetched_counter = 0
     @headless = Headless.new
     @headless.start
     @config = cfg
+
+    @mailer = MailerClass.new(username: ENV['gmail_username'], password: ENV['gmail_password'])
+  end
+
+  def send_mail
+    if @mailer
+      @mailer.sendmail_smtp to: 'sameer@dstrategies.org',
+                            subject: ('NYT Crawler report ' + Time.now.strftime("%Y-%m-%d: %H:%M"))
+    end
   end
   
   def run_crawler
@@ -59,6 +38,7 @@ class NytCrawler
     start = true
     b = nil
     get_xml_doms.each do |source|
+      @mailer.add_line "<hr/><p>Reading XML feed #{source}</p><p><b>Titles</b></p><ol>"
       xml_descriptions = get_xml_dom(source)
       xml_descriptions.children[1].children[0].children.select do |item|
         item.name == 'item'
@@ -74,10 +54,23 @@ class NytCrawler
         end
         
         err "#{title.text} #{categories}"
-        
+        @mailer.add_line "<li>#{title.text}: "
+        @mailer.add_line(categories.to_s)
+        @mailer.add_line "</li>"
+                           
         get_browser
         produce_file title, categories
         sleep 5
+
+        increment_loop
+        if testing? and loop_count > 100
+          break
+        end
+      end
+      @mailer.add_line '</ol>'
+      
+      if testing? and loop_count > 100
+        break
       end
     end
     # All XMLs processed now.
@@ -88,6 +81,15 @@ class NytCrawler
   end
   
   private
+  def testing?
+    @config['environment'] == 'test'
+  end
+
+  def increment_loop
+    @loop_count ||= 0
+    @loop_count += 1
+  end
+
   def nytimes_regex
     /(http.?:\/\/.*\w+\.nytimes\.com)|(url=http.3A.2F.2F.*.\w+\.nytimes\.com.2F)/
   end
@@ -298,14 +300,6 @@ if File.exists? 'config/app.yml'
   config = YAML.load_file 'config/app.yml'
 end
 
-WebMock.disable!
-if config['environment'] == 'test'
-  WebMock.disable_net_connect!(:allow_localhost => true)
-  WebMock.stub_request(:get, "http://rss.nytimes.com/services/xml/rss/nyt/World.xml").
-    with(:headers => {'Accept'=>'*/*', 'Accept-Encoding'=>'gzip;q=1.0,deflate;q=0.6,identity;q=0.3', 'Host'=>'rss.nytimes.com', 'User-Agent'=>'Ruby'}).
-    to_return(:status => 200, :body => File.open('test.xml').readlines.join("\n"))
-end
-
 db_c = ArDatabaseConnector.new 'config/database.yml'
 db_c.run_migrations 'migrations'
 
@@ -316,4 +310,6 @@ unless File.exists? filename
   end
 end
 #binding.pry
-NytCrawler.new(config).run_crawler
+n = NytCrawler.new(config)
+n.run_crawler
+n.send_mail

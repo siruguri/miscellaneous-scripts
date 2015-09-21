@@ -1,4 +1,5 @@
 source 'https://rubygems.org'
+gem 'mail'
 gem 'sqlite3'
 gem 'activerecord', require: 'active_record'
 
@@ -7,5 +8,5 @@ gem 'headless'
 gem 'nokogiri'
 gem 'pry'
 gem 'net'
+gem 'dotenv'
 
-gem 'webmock'
