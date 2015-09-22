@@ -155,8 +155,10 @@ class NytCrawler
       rescue Watir::Exception::UnknownObjectException => e
         err 'Not found. Looking in organic results'
         link = @browser.divs(:css => ".srg .g")[0].as[0]
-      rescue Errno::ECONNREFUSED => e
-        err 'Connection refused... did the screen close?'
+      rescue Errno::ECONNREFUSED, Net::ReadTimeout => e
+        mesg = 'Connection refused or Internet connection timed out ... did the screen close?'
+        err mesg
+        @mailer.add_line mesg
         nil
       end
     else # in test env
@@ -264,7 +266,7 @@ class NytCrawler
     err "Writing to #{outfile}"
 
     t = Date.today
-    unless get_config(:environment, 'production') == 'test'
+    unless testing?
       article = retrieve_article outfile, t
       if article.count == 0
         # Article should be inserted
