@@ -1,3 +1,5 @@
+#!/bin/sh
+
 cd $RAILS_ROOT
 
 /usr/bin/env kill -0 $( cat /var/www/railsapps/track_status/shared/tmp/pids/sidekiq.pid )

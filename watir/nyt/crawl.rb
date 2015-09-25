@@ -4,7 +4,7 @@ Bundler.require(:default)
 
 Dotenv.load
 
-require_relative '../../ar_database_connector.rb'
+require_relative '../../ruby/ar_database_connector.rb'
 
 Dir.glob('models/*.rb').each do |f|
   require_relative f
@@ -13,7 +13,18 @@ Dir.glob('lib/*.rb').each do |f|
   require_relative f
 end
 
+module LocalRefinements
+  refine Nokogiri::XML::Document do
+    def nyt_story_items
+      children[1].children[0].children.select do |item|
+        item.name == 'item'
+      end      
+    end
+  end
+end
+
 class NytCrawler
+  using LocalRefinements
   attr_reader :loop_count
 
   def initialize(cfg=nil)
@@ -24,6 +35,7 @@ class NytCrawler
     @config = cfg
 
     @mailer = MailerClass.new(username: ENV['gmail_username'], password: ENV['gmail_password'])
+    @today_date = Date.today.to_datetime
   end
 
   def send_mail
@@ -40,27 +52,27 @@ class NytCrawler
     get_xml_doms.each do |source|
       @mailer.add_line "<hr/><p>Reading XML feed #{source}</p><p><b>Titles</b></p><ol>"
       xml_descriptions = get_xml_dom(source)
-      xml_descriptions.children[1].children[0].children.select do |item|
-        item.name == 'item'
-      end.each do |story_item|
+      xml_descriptions.nyt_story_items.each do |story_item|
         categories = []
         title = ''
+        pub_date = @today_date
         story_item.children.each do |i|
           if i.name == 'title'
-            title = i
+            title = i.text
           elsif i.name == 'category'
             categories << i.text
+          elsif i.name == 'pubDate'
+            pub_date = DateTime.strptime(i.text, '%a, %e %b %Y %T %Z')
           end
         end
         
-        err "#{title.text} #{categories}"
-        @mailer.add_line "<li>#{title.text}: "
+        err "#{title} #{categories} (pub on #{pub_date})"
+        @mailer.add_line "<li>#{title}: "
         @mailer.add_line(categories.to_s)
-        @mailer.add_line "</li>"
+        @mailer.add_line "<i>#{pub_date})</i></li>"
                            
         get_browser
-        produce_file title, categories
-        sleep 5
+        produce_file title, categories, pub_date
 
         increment_loop
         if testing? and loop_count > 100
@@ -156,9 +168,15 @@ class NytCrawler
         err 'Not found. Looking in organic results'
         link = @browser.divs(:css => ".srg .g")[0].as[0]
       rescue Errno::ECONNREFUSED, Net::ReadTimeout => e
-        mesg = 'Connection refused or Internet connection timed out ... did the screen close?'
-        err mesg
-        @mailer.add_line mesg
+        # on my desktop maybe the screen shut down
+        if get_config(:machine_location) == 'osx' and e.class == Net::ReadTimeout
+          err "Maybe your screen shut down? Press enter."
+          $stdin.gets
+        else
+          mesg = 'Connection refused or Internet connection timed out ... did the screen close?'
+          err mesg
+          @mailer.add_line mesg
+        end
         nil
       end
     else # in test env
@@ -222,62 +240,67 @@ class NytCrawler
 
 
   def add_to_db(title, body, date)
-    Article.create title: title, body: body, crawled_date: date 
-    retrieve_article title, date
+    Article.create title: title, body: body, pub_date: date 
   end
 
   def add_article_category!(article, c)
+    article = article.class == Array ? article[0] : article
+    
     c = Category.find_or_create_by category_name: c
-    article = article[0]
     
     unless Categorization.where(article: article, category: c).count > 0
       Categorization.create article: article, category: c
     end
   end
   
-  def add_article_categories(article, categories)
+  def add_article_categories!(article, categories)
     categories.each do |c|
       add_article_category! article, c
     end
   end
   
-  def retrieve_article(title, date)
-    Article.where title: title
+  # Return array of articles that match title and pub date's date 
+  def retrieve_articles(title, date)
+    Article.where(title: title).all.select do |a|
+      a.pub_date.to_date == date.to_date
+    end
   end
   
   def pre_process_title(t)
-    tp = (t.text.downcase.split(/\s+/) - stop_words).join ' '
+    tp = (t.downcase.split(/\s+/) - stop_words).join ' '
     tp = tp.gsub(/^(\w+ \w+: )/, '')
     tp = tp.split(/\s+/).uniq[0..3].join('+')
     tp = tp.gsub(/[\:\-\&\>\<\.\;\_]/, '+')
     tp
   end
     
-  def produce_file(title, category_list = nil)
+  def produce_file(title, category_list, pub_date)
     # Get link from Google
     # Download link if it's not in DB
     err "Initial title: #{title}"
-    q = pre_process_title title
+
+    old_article_list = retrieve_articles title, pub_date
+    if old_article_list.empty?
+      # Article should be inserted
+      q = pre_process_title title
     
-    err "Getting NYT link from Google search page via query nyt+#{q}"
-    link = extract_nyt_link "https://www.google.com/search?q=nyt+#{q}"
+      u="https://www.google.com/search?q=nyt+#{q}"
+      err "Google search: #{u}"
+      link = extract_nyt_link u
 
-    outfile = href_to_filename link
-    err "Writing to #{outfile}"
+      outfile = href_to_filename link
+      err "Writing to #{outfile}"
 
-    t = Date.today
-    unless testing?
-      article = retrieve_article outfile, t
-      if article.count == 0
-        # Article should be inserted
+      unless testing?
         begin
           content = get_nyt_content link
         # My Internet connection sucks!
         rescue Net::ReadTimeout => e
           err "Timed out. Moving on."
         else
-          article = add_to_db(outfile, content, t)
+          inserted_article = add_to_db(title, content, pub_date)
         ensure
+          sleep 5
           @fetched_counter += 1
           if @fetched_counter == 10
             @fetched_counter = 0
@@ -289,12 +312,18 @@ class NytCrawler
             get_browser
           end
         end
-      else
-        err "File exists - not re-crawling"
-        add_article_categories article, category_list
+      end     # Skip all the article extraction in test
+    else
+      err "File exists - not re-crawling"
+    end
+    
+    if old_article_list.empty?
+      add_article_categories! inserted_article, category_list
+    else
+      old_article_list.each do |a|
+      add_article_categories! a, category_list
       end
     end
-    # SKip all the article extraction in test
   end
 end
 
