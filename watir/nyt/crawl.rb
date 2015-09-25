@@ -133,7 +133,8 @@ class NytCrawler
   end
       
   def err(m)
-    $stderr.write m+"\n"
+    t = Date.today
+    $stderr.write t.inspect + ": " + m + "\n"
   end
   
   def stop_words
