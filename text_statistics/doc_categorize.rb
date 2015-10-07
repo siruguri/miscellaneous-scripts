@@ -1,8 +1,12 @@
+require 'pry'
 require './text_stats'
 
 f = Dir.glob(File.join('inputs', 'training', '*'))
 
 doc_universe = TextStats::DocumentUniverse.new
+
+t = TextStats::DocumentModel.new 'inputs/beer-1.txt'
+puts t.counts; exit -1
 
 models = {}
 f.entries.each do |k|
