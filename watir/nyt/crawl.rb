@@ -45,6 +45,19 @@ class NytCrawler
     end
   end
   
+  def one_run
+    # Get one page, its links and stops
+    get_browser
+    one_link = @config['one_link'] || 'http://www.nytimes.com/2015/09/20/opinion/is-big-tech-too-powerful-ask-google.html'
+    
+    t = get_nyt_content one_link
+    puts "Text length is #{t.size}"
+
+    get_nyt_page_links.each do |l|
+      puts "Link is #{l.attribute_value('href')}"
+    end
+  end
+  
   def run_crawler
     # Hard codes structure of NYT's feed's atom (which should be about the same as any other RSS format)
     start = true
@@ -107,7 +120,7 @@ class NytCrawler
   end
   
   def get_browser
-    @browser ||= Watir::Browser.new :chrome
+    @browser ||= Watir::Browser.new :phantomjs
   end
       
   def err(m)
@@ -184,12 +197,21 @@ class NytCrawler
     end
   end
 
+  def get_nyt_page_links
+    return [] if @browser.nil?
+    @browser.as.select { |l| /20\d\d\/\d+\/\d+\//.match l.attribute_value('href')}
+  end
+  
   def get_nyt_content(link)
     @try_text = ''
     if link
       ctr = 0
       begin
-        link.click
+        if link.is_a? String
+          @browser.goto link
+        else
+          link.click
+        end
         sleep 5
 
         all_ps = @browser.ps
@@ -342,5 +364,10 @@ unless File.exists? filename
 end
 #binding.pry
 n = NytCrawler.new(config)
-n.run_crawler
+
+if config['one_run']
+  n.one_run
+else
+  n.run_crawler
+end
 n.send_mail

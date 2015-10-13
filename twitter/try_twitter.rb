@@ -1,4 +1,5 @@
 require 'twitter'
+require 'pry'
 
 client = Twitter::REST::Client.new do |config|
   config.consumer_key        = "qaqpdnACK24BRiFYIMg3Wg"
@@ -7,6 +8,9 @@ client = Twitter::REST::Client.new do |config|
   config.access_token_secret = "RQh8yxkBToojsDslQyTLTmzG2cDui8JYd2ZjcyRLte4yw"
 end
 
+cursor = "-1"
+binding.pry
+followers = Twitter.followers "IDTOLOOKUP", {cursor: cursor}
 client.user_timeline(count: 10).each_with_index do |tweet, idx|
   puts "##{idx}: #{tweet.id}: #{tweet.full_text}"
 end
