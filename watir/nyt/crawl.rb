@@ -106,6 +106,14 @@ class NytCrawler
   end
   
   private
+  def all_google_page_links
+    if @config['browser'] == 'chrome'
+      @browser.div(css: '._yE').as
+    else
+      @browser.as
+    end
+  end
+  
   def testing?
     @config['environment'] == 'test'
   end
@@ -116,6 +124,7 @@ class NytCrawler
   end
 
   def nytimes_regex
+    # /url?q=http://www.nytimes.com/2015/10/20/health/a-new-life-or-death-approach-t
     /(http.?:\/\/.*\w+\.nytimes\.com)|(url=http.3A.2F.2F.*.\w+\.nytimes\.com.2F)/
   end
   
@@ -166,13 +175,15 @@ class NytCrawler
         @browser.goto url
 
         err 'Looking for News Answer'
-        phantom_links = @browser.div(css: '._yE').as.select do |l|
+
+        phantom_links = all_google_page_links.select do |l|
           err "Looking at href = #{l.attribute_value('href')}"
           nytimes_regex.match(l.attribute_value('data-href')) or
             nytimes_regex.match(l.attribute_value('href'))
         end
         
-        if phantom_links.size > 0 
+        if phantom_links.size > 0
+          err "Picking #{phantom_links[0].attribute_value('href')}"
           return phantom_links[0]
         else
           raise Watir::Exception::UnknownObjectException
@@ -310,9 +321,6 @@ class NytCrawler
       err "Google search: #{u}"
       link = extract_nyt_link u
 
-      outfile = href_to_filename link
-      err "Writing to #{outfile}"
-
       unless testing?
         begin
           content = get_nyt_content link
@@ -320,6 +328,7 @@ class NytCrawler
         rescue Net::ReadTimeout => e
           err "Timed out. Moving on."
         else
+          err "Adding db article: #{title}-/-#{pub_date}"
           inserted_article = add_to_db(title, content, pub_date)
         ensure
           sleep 5
