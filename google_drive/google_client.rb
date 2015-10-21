@@ -117,10 +117,20 @@ class GoogleBackup
     filename = 'tmp'
     @start_folder.data.items.each do |item|
       log("Getting item with ID #{item.id}", 3)
-      metadata = @client.execute(api_method: @drive.files.get,
-                                 parameters: {
-                                   "fileId" => item.id
-                                 })
+      connected = false
+      while(!connected)
+        begin
+          metadata = @client.execute(api_method: @drive.files.get,
+                                     parameters: {
+                                       "fileId" => item.id
+                                     })
+        rescue Faraday::ConnectionFailed => e
+          log "Faraday connection failed with error #{e.message}"
+        else
+          connected = true
+        end
+      end
+      
       written = false
       item_data = metadata.data 
 
