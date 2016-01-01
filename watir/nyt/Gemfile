@@ -9,6 +9,7 @@ gem 'watir-webdriver'
 gem 'headless'
 gem 'nokogiri'
 gem 'pry'
+gem 'pry-nav'
 gem 'net'
 gem 'dotenv'
 

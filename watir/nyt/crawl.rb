@@ -99,9 +99,14 @@ class NytCrawler
       end
     end
     # All XMLs processed now.
-
     if @browser
-      @browser.close
+      begin
+        @browser.close
+      rescue Errno::ECONNREFUSED => e
+        unless e.message.match '8910'
+          raise e
+        end
+      end
     end
   end
   
@@ -128,6 +133,23 @@ class NytCrawler
     /(http.?:\/\/.*\w+\.nytimes\.com)|(url=http.3A.2F.2F.*.\w+\.nytimes\.com.2F)/
   end
   
+  def renew_browser
+    err "Renewing browser due to connection failures"
+    if @browser
+      begin
+        @browser.close
+      rescue Errno::ECONNREFUSED => e
+        unless e.message.match '8910'
+          raise e
+        end
+      end
+
+      @browser=nil
+    end
+    
+    get_browser
+  end
+
   def get_browser
     @browser ||= Watir::Browser.new :phantomjs
   end
@@ -171,40 +193,36 @@ class NytCrawler
   end
   
   def extract_nyt_link(url)
-    if @browser
-      begin
-        @browser.goto url
-
-        err 'Looking for News Answer'
-
-        phantom_links = all_google_page_links.select do |l|
-          err "Looking at href = #{l.attribute_value('href')}"
-          nytimes_regex.match(l.attribute_value('data-href')) or
-            nytimes_regex.match(l.attribute_value('href'))
-        end
-        
-        if phantom_links.size > 0
-          err "Picking #{phantom_links[0].attribute_value('href')}"
-          return phantom_links[0]
-        else
-          raise Watir::Exception::UnknownObjectException
-        end
-      rescue Watir::Exception::UnknownObjectException => e
-        err 'Not found. Looking in organic results'
-        link = @browser.divs(:css => ".srg .g")[0].as[0]
-      rescue Errno::ECONNREFUSED, Net::ReadTimeout => e
-        # on my desktop maybe the screen shut down
-        if get_config(:machine_location) == 'osx' and e.class == Net::ReadTimeout
-          err "Maybe your screen shut down? Press enter."
-          $stdin.gets
-        else
-          mesg = 'Connection refused or Internet connection timed out ... did the screen close?'
-          err mesg
-          @mailer.add_line mesg
-        end
-        nil
+    begin
+      @browser.goto url
+      
+      err 'Looking for News Answer'
+      
+      phantom_links = all_google_page_links.select do |l|
+        err "Looking at href = #{l.attribute_value('href')}"
+        nytimes_regex.match(l.attribute_value('data-href')) or
+          nytimes_regex.match(l.attribute_value('href'))
       end
-    else # in test env
+      
+      if phantom_links.size > 0
+        err "Picking #{phantom_links[0].attribute_value('href')}"
+        return phantom_links[0]
+      else
+        raise Watir::Exception::UnknownObjectException
+      end
+    rescue Watir::Exception::UnknownObjectException => e
+      err 'Not found. Looking in organic results'
+      link = @browser.divs(:css => ".srg .g")[0].as[0]
+    rescue Errno::ECONNREFUSED, Net::ReadTimeout => e
+      # on my desktop maybe the screen shut down
+      if get_config(:machine_location, 'anonymous') == 'osx' and e.class == Net::ReadTimeout
+        err "Maybe your screen shut down? Press enter."
+        $stdin.gets
+      else
+        mesg = 'Connection refused or Internet connection timed out ... did the screen close?'
+        err mesg
+        @mailer.add_line mesg
+      end
       nil
     end
   end
@@ -320,40 +338,52 @@ class NytCrawler
     
       u="https://www.google.com/search?q=nyt+#{q}"
       err "Google search: #{u}"
-      link = extract_nyt_link u
 
-      unless testing?
+      browser_works = false
+      link = nil
+      while !browser_works
+        begin
+          link = extract_nyt_link u
+        rescue EOFError, Errno::ECONNREFUSED => e
+          if e.class == EOFError || e.message.match('8910')
+            renew_browser
+          else
+            raise e
+          end
+        else
+          browser_works = true
+        end
+      end
+
+      browser_works = false
+      while !browser_works and !link.nil?
         begin
           content = get_nyt_content link
         # My Internet connection sucks!
+        rescue Errno::ECONNREFUSED => e
+          if e.message.match '8910'
+            renew_browser
+          end
         rescue Net::ReadTimeout => e
           err "Timed out. Moving on."
         else
           err "Adding db article: #{title}-/-#{pub_date}"
+          browser_works = true
           inserted_article = add_to_db(title, content, pub_date)
+          add_article_categories! inserted_article, category_list
         ensure
           sleep 5
           @fetched_counter += 1
           if @fetched_counter == 10
             @fetched_counter = 0
-            if @browser
-              @browser.close
-              @browser=nil
-            end
-            
-            get_browser
+            renew_browser
           end
         end
       end     # Skip all the article extraction in test
     else
       err "File exists - not re-crawling"
-    end
-    
-    if old_article_list.empty?
-      add_article_categories! inserted_article, category_list
-    else
       old_article_list.each do |a|
-      add_article_categories! a, category_list
+        add_article_categories! a, category_list
       end
     end
   end
