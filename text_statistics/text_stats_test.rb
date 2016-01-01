@@ -6,11 +6,13 @@ class TextStatsTest < Minitest::Test
     @model_1 = TextStats::DocumentModel.new 'cat dog cat cat cat dog buffalo'
     @model_2 = TextStats::DocumentModel.new 'cat dog cat cat cat dog buffalo'
     @model_3 = TextStats::DocumentModel.new 'cat dog cat cat cat'
+    @leading_space_model_3 = TextStats::DocumentModel.new ' cat dog cat cat cat'
   end
 
   def test_counting_works
     assert_equal({"cat" => 4, "dog" => 2, "buffalo" => 1}, @model_1.counts)
     assert_equal({"cat dog" => 2, "dog cat" => 1, "cat cat"=>2, "dog buffalo" => 1}, @model_1.counts(2))
+    assert_equal @model_3.counts, @leading_space_model_3.counts
   end
   def test_sorted_counting_works
     assert_equal([["buffalo", 1], ["dog", 2], ["cat", 4]], @model_1.sorted_counts)

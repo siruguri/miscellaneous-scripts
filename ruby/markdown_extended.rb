@@ -66,7 +66,7 @@ class Processor
   end
 
   def process_file(filename)
-    input = '<link href="markdown.css" rel="stylesheet"></link>' + "\n"
+    input = '<link href="file:///Users/sameer/code/css/markdown.css" rel="stylesheet"></link>' + "\n"
 
     begin
       input += File.open(filename).readlines.join("")

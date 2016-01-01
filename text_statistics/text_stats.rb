@@ -5,7 +5,6 @@ module TextStats
     # Currently, only running dot-product for 1-grams
 
     attr_reader :score, :products, :dot_product
-    
     def initialize(d1, d2, opts = {})
       @source_names=[d1.source_name, d2.source_name]
       @products = {}
@@ -82,7 +81,7 @@ module TextStats
       if opts[:as_html]
         @body.gsub!(/<\/?[^>]+>/, ' ')
       end
-      ((@body.gsub(/[^'a-zA-Z0-9]/, ' ').split(/\s+/).map(&:downcase)) - stop_words).slice(0..300)
+      ((@body.gsub(/[^'a-zA-Z0-9]/, ' ').strip.split(/\s+/).map(&:downcase)) - stop_words).slice(0..300)
     end
 
     def counts(term_size = 1, opts = {})

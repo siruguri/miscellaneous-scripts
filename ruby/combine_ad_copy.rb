@@ -11,6 +11,7 @@ opts = GetoptLong.new(
   [ '--sequences-file', '-s', GetoptLong::REQUIRED_ARGUMENT],
   [ '--kwd-dir', '-k', GetoptLong::REQUIRED_ARGUMENT],
   [ '--ad-group-prefix', '-p', GetoptLong::REQUIRED_ARGUMENT],
+  [ '--campaign-name', '-c', GetoptLong::REQUIRED_ARGUMENT],
   [ '--output-directory', '-d', GetoptLong::REQUIRED_ARGUMENT]
 )
 
@@ -118,9 +119,10 @@ end
 kwd_dir = sequences_file = nil
 output_dir = '.'
 ad_grp_prefix = 'trial ads'
+campaign_name = 'Fill this in'
 
 def help
-  MyUtilities.error_exit("Supply a directory with files with --kwd-dir/-k; a filename containing sequences or a list of seqs each as a quoted string with --sequences-file/-s; the ad group prefix optionally with --ad-group-prefix/-p; the output directory with --output-directory/-d")
+  MyUtilities.error_exit("Supply a directory with files with --kwd-dir/-k;\na filename containing sequences or a list of seqs each as a quoted string with --sequences-file/-s;\nthe ad group prefix optionally with --ad-group-prefix/-p;\nthe campaign name optionally with --campaign-name/-c;\nthe output directory with --output-directory/-d")
 end
 
 opts.each do |opt, arg|
@@ -136,6 +138,9 @@ opts.each do |opt, arg|
 
   when '--ad-group-prefix'
     ad_grp_prefix = arg
+    
+  when '--campaign-name'
+    campaign_name = arg
 
   when '--output-directory'
     if !Dir.exists? arg
@@ -186,7 +191,7 @@ all_seqs.each do |seqs|
       end
     end.each do |x|
       unless x.size > 60
-        out_f.puts "enabled	#{x}	Broad	Citiz Audit	#{ad_grp_prefix}.#{iter_index}	campaign paused	0.60	0.10		Search Only	Standard	0	0	0.00%	0.00	0.00	0.0	 --"
+        out_f.puts "enabled	#{x}	Broad	#{campaign_name}	#{ad_grp_prefix}.#{iter_index}	campaign paused	0.60	0.10		Search Only	Standard	0	0	0.00%	0.00	0.00	0.0	 --"
       end
     end
 
