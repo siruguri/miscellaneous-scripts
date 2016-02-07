@@ -1,0 +1,6 @@
+source 'https://rubygems.org'
+ruby '2.3.0'
+
+gem 'google-api-client', "=0.8"
+gem 'launchy'
+gem 'parseconfig'

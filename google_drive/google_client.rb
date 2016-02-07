@@ -281,9 +281,9 @@ class GoogleBackup
 end
 
 begin
-  config=ParseConfig.new('gd_config.ini')
+  config=ParseConfig.new(ARGV.pop || 'gd_config.ini')
 rescue Errno::EACCES => e
-  $stderr.write("There needs to be a config file called gd_config.ini (#{e.class}, #{e.message})\n")
+  $stderr.write("There needs to be a config file (maybe in cmd line args) called gd_config.ini (#{e.class}, #{e.message})\n")
   exit -1
 end
 
