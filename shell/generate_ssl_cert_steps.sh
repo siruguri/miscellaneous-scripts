@@ -17,4 +17,4 @@ echo removing server pass key
 rm server.pass.key
 echo generating csr
 openssl req -new -key server.key -out server.csr
-mv server.csr server.key $1
+mv server.csr server.key "$1"

@@ -1,0 +1,1 @@
+rsync -vrLki  --ignore-errors --delete  --delete-excluded --exclude-from=rsync_config/excluded.txt --exclude='dm_spl_monthly_update_oct2014' --password-file=/Users/sameer/.rsync/rsync_config/rsync_client_password_dstrategies_do_droplet.txt /Users/sameer/.rsync/rsync_config/directories/  sameer@dstrategies.org::backups/mbp2009 > "$HOME/.rsync/log_files/out-`date`.txt"
