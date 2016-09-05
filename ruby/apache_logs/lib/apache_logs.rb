@@ -1,13 +1,9 @@
-require 'apachelogregex'
-require 'pry-byebug'
-require 'zlib'
-
 class ApacheLogs
   class UnknownMethodException < Exception
   end
   
   def self.allowed_methods
-    [:four_04s]
+    [:four_04s, :two_00s].map { |i| i.to_s}
   end
   def self.method_allowed?(m)
     allowed_methods.include?(m) or allowed_methods.include?(m.to_sym)
@@ -24,18 +20,21 @@ class ApacheLogs
     @_bad_404_requestor_counts = {}
   end
 
-  def run(method, entries)
+  def run(method, entries, app)
     if !ApacheLogs.method_allowed?(method)
       raise UnknownMethodException.new(method)
     end
 
+    @db_conn = app.db_conn
+    @method = method
+
     if File.ftype(entries) == 'file'
-        analyze method, entries
+        analyze entries
     elsif Dir.exist? entries
       Dir.entries(entries).each do |f|
         log = File.join(entries, f)
         if File.ftype(log) == 'file'
-          analyze method, log
+          analyze log
         end
       end
     else
@@ -74,7 +73,6 @@ class ApacheLogs
     end
   end
 
-  private
   def malicious_url(uri)
     !(/GET \/((blog)|(category)|(tag)|(robots)|(comments.feed)|(2\d))/).match(uri)
   end
@@ -97,7 +95,7 @@ class ApacheLogs
     end
   end
   
-  def analyze(method, entries_file)
+  def analyze(entries_file)
     $stderr.write("Opening #{entries_file}\n")
 
     if /.gz$/.match entries_file
@@ -105,7 +103,7 @@ class ApacheLogs
     else
       @lines = File.open(entries_file).readlines
     end
-    self.send(method)
+    self.send @method
   end
   
   def apache_fields(l)
@@ -113,6 +111,8 @@ class ApacheLogs
   end
 
   def add_404_request(uri, ip)
+    UriRequest.find_or_create_by uri: uri, ip: ip
+    
     @_404_request_url_counts[uri] ||= 0
     @_404_request_url_counts[uri] += 1
 
@@ -124,14 +124,3 @@ class ApacheLogs
     end
   end
 end
-
-if ARGV.size > 1
-  begin
-    ApacheLogs.new.run ARGV[0], ARGV[1]
-  rescue ApacheLogs::UnknownMethodException => e
-    $stderr.puts("That method is not known.")
-  end
-else
-  $stderr.write("Please enter at least two cmd line args: the method of analysis (from #{ApacheLogs.allowed_methods}); and the log file or a directory containing them (can be gzipped).\n")
-  exit -1
-end  

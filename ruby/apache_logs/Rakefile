@@ -1,0 +1,114 @@
+require "rubygems"
+require "bundler/setup"
+
+require 'active_record'
+require 'yaml'
+
+namespace :db do
+  def create_database config
+    options = {:charset => 'utf8', :collation => 'utf8_unicode_ci', auto_vacuum: 'full'}
+
+    create_db = lambda do |config|
+      if config['adapter']!='sqlite3'
+        ActiveRecord::Base.establish_connection config.merge('database' => nil)
+        ActiveRecord::Base.connection.create_database config['database'], options
+      end
+      ActiveRecord::Base.establish_connection config
+    end
+
+    begin
+      create_db.call config
+    rescue Exception => sqlerr
+      if defined? Mysql::Error and sqlerr.is_a? Mysql::Error
+        if sqlerr.errno == 1405
+          print "#{sqlerr.error}. \nPlease provide the root password for your mysql installation\n>"
+          root_password = $stdin.gets.strip
+
+          grant_statement = <<-SQL
+          GRANT ALL PRIVILEGES ON #{config['database']}.* 
+            TO '#{config['username']}'@'localhost'
+            IDENTIFIED BY '#{config['password']}' WITH GRANT OPTION;
+        SQL
+
+          create_db.call config.merge('database' => nil, 'username' => 'root', 'password' => root_password)
+        else
+          $stderr.puts sqlerr.error
+          $stderr.puts "Couldn't create database for #{config.inspect}, charset: utf8, collation: utf8_unicode_ci"
+          $stderr.puts "(if you set the charset manually, make sure you have a matching collation)" if config['charset']
+        end
+      end
+    end
+  end
+ 
+  task :environment do
+    DATABASE_ENV = ENV['DATABASE_ENV'] || 'development'
+    MIGRATIONS_DIR = ENV['MIGRATIONS_DIR'] || 'db/migrate'
+    DATABASE_CONFIG_FILE = ENV['DATABASE_CONFIG_FILE'] || 'config/database.yml'
+  end
+
+  task :configuration => :environment do
+    @config = YAML.load_file(DATABASE_CONFIG_FILE)[DATABASE_ENV]
+  end
+
+  task :configure_connection => :configuration do
+    ActiveRecord::Base.establish_connection @config
+    ActiveRecord::Base.logger = Logger.new STDOUT if @config['logger']
+  end
+
+  task :console => [:configure_connection, :get_models] do
+    require 'irb'
+    ARGV.clear
+    IRB.start
+  end
+
+  desc 'Create the database from config/database.yml (or supplied in DATABASE_CONFIG_FILE env var) for the current DATABASE_ENV
+'
+  task :create => :configure_connection do
+    create_database @config
+  end
+
+  desc 'Drops the database for the current DATABASE_ENV'
+  task :drop => :configure_connection do
+    if ActiveRecord::Base.connection.is_a? ActiveRecord::ConnectionAdapters::SQLite3Adapter
+      ActiveRecord::Base.connection.disconnect!
+      File.unlink @config['database']
+      Rake::Task['db:configure_connection'].reenable
+      Rake::Task["db:configure_connection"].invoke
+    else
+      ActiveRecord::Base.connection.drop_database @config['database']
+    end
+  end
+
+  desc 'Migrate the database (options: VERSION=x, VERBOSE=false).'
+  task :migrate => :configure_connection do
+    ActiveRecord::Migration.verbose = true
+    ActiveRecord::Migrator.migrate MIGRATIONS_DIR, ENV['VERSION'] ? ENV['VERSION'].to_i : nil
+  end
+
+  desc 'Rolls the schema back to the previous version (specify steps w/ STEP=n).'
+  task :rollback => :configure_connection do
+    step = ENV['STEP'] ? ENV['STEP'].to_i : 1
+    ActiveRecord::Migrator.rollback MIGRATIONS_DIR, step
+  end
+
+  desc "Retrieves the current schema version number"
+  task :version => :configure_connection do
+    puts "Current version: #{ActiveRecord::Migrator.current_version}"
+  end
+
+  task :reset => [:drop, :migrate]
+
+  desc 'Read the models for the table from generate_xml/models'
+  task :get_models do
+    Dir.glob(File.join('..', 'generate_xml', 'models', '**', '*rb')).each { |f| require_relative f }
+  end
+  
+  namespace :seed do
+    Dir[File.join('db', 'seeds', '*.rb')].each do |filename|
+      task_name = File.basename(filename, '.rb').to_sym
+      task task_name => [:configure_connection, :get_models] do
+        load(filename) if File.exist?(filename)
+      end
+    end
+  end
+end

@@ -1,0 +1,16 @@
+source 'https://rubygems.org'
+ruby "2.3.0"
+
+gem 'activerecord', require: 'active_record'
+
+# For time math support
+gem 'activesupport'
+
+gem 'apachelogregex'
+gem 'sqlite3'
+
+gem 'byebug'
+gem 'pry'
+gem 'pry-remote'
+gem 'pry-stack_explorer'
+gem 'pry-byebug'
