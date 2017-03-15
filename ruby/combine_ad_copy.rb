@@ -12,7 +12,9 @@ opts = GetoptLong.new(
   [ '--kwd-dir', '-k', GetoptLong::REQUIRED_ARGUMENT],
   [ '--ad-group-prefix', '-p', GetoptLong::REQUIRED_ARGUMENT],
   [ '--campaign-name', '-c', GetoptLong::REQUIRED_ARGUMENT],
-  [ '--output-directory', '-d', GetoptLong::REQUIRED_ARGUMENT]
+  [ '--output-directory', '-d', GetoptLong::REQUIRED_ARGUMENT],
+  [ '--keywords-only', '-x', GetoptLong::NO_ARGUMENT],
+  [ '--keyphrase-limit', '-l', GetoptLong::REQUIRED_ARGUMENT]
 )
 
 class Combiner
@@ -120,6 +122,8 @@ kwd_dir = sequences_file = nil
 output_dir = '.'
 ad_grp_prefix = 'trial ads'
 campaign_name = 'Fill this in'
+keywords_only = false
+keyphrase_limit = 0
 
 def help
   MyUtilities.error_exit("Supply a directory with files with --kwd-dir/-k;\na filename containing sequences or a list of seqs each as a quoted string with --sequences-file/-s;\nthe ad group prefix optionally with --ad-group-prefix/-p;\nthe campaign name optionally with --campaign-name/-c;\nthe output directory with --output-directory/-d")
@@ -130,6 +134,9 @@ opts.each do |opt, arg|
   when '--help'
     help
 
+  when '--keyphrase-limit'
+    keyphrase_limit = arg.to_i
+    
   when '--kwd-dir'
     kwd_dir = arg
     
@@ -142,6 +149,9 @@ opts.each do |opt, arg|
   when '--campaign-name'
     campaign_name = arg
 
+  when '--keywords-only'
+    keywords_only = true
+    
   when '--output-directory'
     if !Dir.exists? arg
       MyUtilities.error_exit "Option to -d/--output-directory is not a directory"
@@ -173,15 +183,17 @@ c=Combiner.new kwd_dir
 slice_size = 19000
 
 # Break down the outputs into individual files for upload
-all_seqs.each do |seqs|
+all_seqs.each_with_index do |seqs, seq_index|
   all_words = c.create_seqs [seqs]
   iterations = all_words.size / slice_size
 
   (0..iterations).each do |iter_index|
     slice_end = [all_words.size, slice_size * (iter_index + 1)].min - 1
     slice_beg = slice_size * iter_index
-    out_f = File.open File.join(output_dir, "#{iter_index}.kwds.tsv"), 'w'
-    out_f.puts "Keyword state	Keyword	Match type	Campaign	Ad group	Status	Keyword max CPC	Ad group max CPC	Destination URL	Campaign type	Campaign subtype	Clicks	Impressions	CTR	Avg. CPC	Cost	Avg. position	Labels"
+
+    $stderr.puts "Writing slice #{iter_index} for seq #{seq_index}"
+    out_f = File.open File.join(output_dir, "seq_#{seq_index}.#{iter_index}.kwds.tsv"), 'a'
+    out_f.puts "Keyword state	Keyword	Match type	Campaign	Ad group	Status	Keyword max CPC	Ad group max CPC	Destination URL	Campaign type	Campaign subtype	Clicks	Impressions	CTR	Avg. CPC	Cost	Avg. position	Labels" unless keywords_only
     
     all_words[slice_beg..slice_end].sort do |a, b|
       if a.size == b.size
@@ -190,8 +202,10 @@ all_seqs.each do |seqs|
         ret= a.size <=> b.size
       end
     end.each do |x|
-      unless x.size > 60
-        out_f.puts "enabled	#{x}	Broad	#{campaign_name}	#{ad_grp_prefix}.#{iter_index}	campaign paused	0.60	0.10		Search Only	Standard	0	0	0.00%	0.00	0.00	0.0	 --"
+      unless (keyphrase_limit == 0 && x.size > 60) ||
+             (keyphrase_limit != 0 && x.split(' ').size > keyphrase_limit)
+        out_f.puts(keywords_only ? x :
+                     "enabled	#{x}	Broad	#{campaign_name}	#{ad_grp_prefix}.#{iter_index}	campaign paused	0.60	0.10		Search Only	Standard	0	0	0.00%	0.00	0.00	0.0	 --")
       end
     end
 

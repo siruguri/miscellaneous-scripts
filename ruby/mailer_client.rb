@@ -39,7 +39,7 @@ module MailerModule
         smtp = make_smtp_client()
 
         mesg = make_message_header_and_body
-        smtp.start('smtp.gmail.com', 'siruguri', 'utflpjefsnnkvybp', :login) do |smtp|
+        smtp.start('smtp.gmail.com', 'siruguri', ENV['gmail_app_password'], :login) do |smtp|
           smtp.send_message(mesg, 'siruguri@gmail.com', to_list)
         end
         return 1
