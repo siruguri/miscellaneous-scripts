@@ -1,5 +1,5 @@
 require 'getoptlong'
-require 'mailer_client.rb'
+require_relative './mailer_client'
 
 opts = GetoptLong.new(
   [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
@@ -42,7 +42,7 @@ EOS
   exit 0
 end
 
-to_list = "Sameer at Techsoup <ssiruguri@techsoupglobal.org>, Sameer Siruguri <sameers.public@gmail.com>"
+to_list = "Sameer Siruguri <sameers.public@gmail.com>"
 subject = 'Dummy Subject'
 message = 'Dummy Message'
 
